@@ -295,7 +295,7 @@ export default function AdminPage() {
               </Card>
             ))}
           </div>
-        ) : (
+        ) : tab === 'users' ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">{users.length} usuarios registrados</p>
             {users.map(u => {
@@ -527,7 +527,7 @@ export default function AdminPage() {
               </button>
 
               <p className="text-xs font-mono text-center" style={{ color: '#00fff530' }}>
-                ⚠ Esto enviará un email a cada usuario registrado. No tiene límite de envíos por ahora.
+                ⚠ Requiere dominio verificado en Resend. Configura RESEND_FROM=noreply@tudominio.com en Netlify.
               </p>
             </div>
           </div>

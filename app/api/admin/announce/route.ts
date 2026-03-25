@@ -26,10 +26,19 @@ export async function POST(req: Request) {
   if (emails.length === 0)
     return NextResponse.json({ error: 'No hay usuarios registrados' }, { status: 400 })
 
-  const html = buildAnnouncementEmail(body)
-  const from = process.env.RESEND_FROM ?? 'Skill All Show <onboarding@resend.dev>'
+  const from = process.env.RESEND_FROM ?? ''
 
-  // Resend batch limit is 50/request — chunk to be safe
+  // Guard: resend.dev sandbox only works for the account owner — require a verified domain
+  const hasDomain = from && !from.includes('onboarding@resend.dev')
+  if (!hasDomain) {
+    return NextResponse.json({
+      error: 'DOMAIN_NOT_CONFIGURED — Configura RESEND_FROM con tu dominio verificado en Resend para poder enviar a todos los usuarios.',
+    }, { status: 503 })
+  }
+
+  const html = buildAnnouncementEmail(body)
+
+  // Resend allows up to 50 recipients per request
   const CHUNK = 50
   let sent = 0
   const errors: string[] = []
