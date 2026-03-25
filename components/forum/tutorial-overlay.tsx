@@ -20,7 +20,7 @@ const STEPS: Step[] = [
     icon: <Zap className="h-8 w-8" style={{ color: '#00fff5' }} />,
     title: 'BIENVENIDO A SKILL ALL SHOW',
     description:
-      'Este es el foro de la comunidad DedSec. Un espacio libre donde puedes compartir conocimiento, proyectos, recursos y conectarte con otros miembros.',
+      'Este es el foro de la comunidad THO, que volvió más fuerte como Skill All Show. Un espacio libre donde puedes compartir conocimiento, proyectos, recursos y conectarte con otros miembros.',
     extra: 'Aquí cada voz importa — sin filtros, sin censura innecesaria.',
   },
   {
@@ -70,9 +70,9 @@ const STEPS: Step[] = [
     icon: <Shield className="h-8 w-8" style={{ color: '#ff4444' }} />,
     title: 'MODERACIÓN CON IA',
     description:
-      'Todos los posts pasan por un análisis de IA (GROQ) que clasifica el contenido como bueno, sospechoso o con posibles amenazas. Los admins ven el veredicto en cada post.',
+      'Todos los posts pasan por un análisis de IA (GROQ) y los archivos se escanean automáticamente con VirusTotal contra más de 70 motores antivirus. Los admins ven el veredicto antes de aprobar.',
     extra:
-      'Si tu post tiene archivos o links, un admin lo revisa antes de publicarlo. Generalmente tarda menos de unos minutos.',
+      'Si tu post tiene archivos o links, un admin lo revisa antes de publicarlo. Archivos maliciosos son bloqueados automáticamente para proteger a la comunidad.',
   },
 ]
 

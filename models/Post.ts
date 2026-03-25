@@ -24,6 +24,16 @@ export interface IPost {
     flags: string[]
     analyzedAt: Date
   }
+  vtAnalysis?: {
+    status: string
+    malicious: number
+    suspicious: number
+    total: number
+    sha256: string
+    permalink?: string
+    analysisId?: string
+    scannedAt: string
+  }
   createdAt: Date
 }
 
@@ -47,6 +57,16 @@ const PostSchema = new Schema<IPost>(
       reason:     { type: String, default: '' },
       flags:      [{ type: String }],
       analyzedAt: { type: Date },
+    },
+    vtAnalysis: {
+      status:     { type: String },
+      malicious:  { type: Number, default: 0 },
+      suspicious: { type: Number, default: 0 },
+      total:      { type: Number, default: 0 },
+      sha256:     { type: String, default: '' },
+      permalink:  { type: String, default: '' },
+      analysisId: { type: String, default: '' },
+      scannedAt:  { type: String, default: '' },
     },
   },
   { timestamps: true }

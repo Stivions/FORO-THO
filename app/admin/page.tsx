@@ -552,8 +552,24 @@ export default function AdminPage() {
               pendingPosts.map(p => {
                 const analysis = p.aiAnalysis
                 const verdictColor = analysis ? ({ good: '#00ff88', suspicious: '#ff9500', bad: '#ff003c' } as any)[analysis.verdict] : null
+                const vt = p.vtAnalysis
+                const vtColor =
+                  !vt              ? null :
+                  vt.status === 'malicious'  ? '#ff003c' :
+                  vt.status === 'suspicious' ? '#ff9500' :
+                  vt.status === 'scanning'   ? '#aaaaaa' :
+                  vt.status === 'clean'      ? '#00ff88' : '#555'
+                const vtLabel =
+                  !vt              ? null :
+                  vt.status === 'malicious'  ? `🦠 VT: ${vt.malicious}/${vt.total} MALICIOSO` :
+                  vt.status === 'suspicious' ? `⚠ VT: ${vt.suspicious}/${vt.total} sospechoso` :
+                  vt.status === 'scanning'   ? '⏳ VT: escaneando...' :
+                  vt.status === 'clean'      ? `✓ VT: limpio (${vt.total} motores)` :
+                  '? VT: desconocido'
                 return (
-                  <Card key={p._id} className={`bg-card border-border ${p.status === 'pending' ? 'border-orange-500/30' : ''}`}>
+                  <Card key={p._id} className={`bg-card border-border ${
+                    p.status === 'pending' ? (vt?.status === 'malicious' ? 'border-red-500/50' : 'border-orange-500/30') : ''
+                  }`}>
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-start gap-3">
                         <div className="flex-1 min-w-0">
@@ -571,6 +587,14 @@ export default function AdminPage() {
                                 style={{ color: verdictColor, border: `1px solid ${verdictColor}40`, fontSize: '10px' }}>
                                 IA: {analysis.verdict === 'good' ? '✓ Bueno' : analysis.verdict === 'bad' ? '✕ Alerta' : '⚠ Revisar'}
                               </span>
+                            )}
+                            {vt && vtColor && (
+                              <a href={vt.permalink ?? '#'} target="_blank" rel="noopener noreferrer"
+                                className="text-xs font-mono px-2 py-0.5 rounded transition-opacity hover:opacity-80"
+                                style={{ color: vtColor, border: `1px solid ${vtColor}40`, fontSize: '10px' }}
+                                title={`SHA256: ${vt.sha256}`}>
+                                {vtLabel}
+                              </a>
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mb-1 line-clamp-2">{p.content}</p>

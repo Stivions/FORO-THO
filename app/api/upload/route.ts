@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { v2 as cloudinary } from 'cloudinary'
 import { google } from 'googleapis'
 import { Readable } from 'stream'
+import { scanBuffer, type VTResult } from '@/lib/virustotal'
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -66,6 +67,12 @@ export async function POST(req: Request) {
     const isImage = contentType.startsWith('image/')
     const isVideo = contentType.startsWith('video/')
 
+    // ── VirusTotal scan (runs concurrently with storage upload) ──
+    // Only scan non-image files (images are lower risk and quota is limited)
+    const vtPromise: Promise<VTResult | null> = (!isImage && process.env.VIRUSTOTAL_API_KEY)
+      ? scanBuffer(buffer, filename)
+      : Promise.resolve(null)
+
     // Images → Cloudinary
     if (isImage) {
       if (buffer.length > MAX_IMAGE_SIZE) {
@@ -77,14 +84,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ url: result.secure_url, type: 'image' })
     }
 
-    // Videos + any other file → Google Drive
+    // Videos + any other file → Google Drive (runs in parallel with VT scan)
     const drive = google.drive({ version: 'v3', auth: driveAuth })
 
-    const created = await drive.files.create({
-      requestBody: { name: filename, mimeType: contentType },
-      media:       { mimeType: contentType, body: Readable.from(buffer) },
-      fields:      'id',
-    })
+    const [created, vtResult] = await Promise.all([
+      drive.files.create({
+        requestBody: { name: filename, mimeType: contentType },
+        media:       { mimeType: contentType, body: Readable.from(buffer) },
+        fields:      'id',
+      }),
+      vtPromise,
+    ])
 
     const fileId = created.data.id!
 
@@ -93,12 +103,22 @@ export async function POST(req: Request) {
       requestBody: { role: 'reader', type: 'anyone' },
     })
 
+    // Block clearly malicious files (≥3 engines flagged it)
+    if (vtResult && vtResult.status === 'malicious' && vtResult.malicious >= 3) {
+      // Delete from Drive immediately
+      await drive.files.delete({ fileId }).catch(() => {})
+      return NextResponse.json({
+        error: `⚠ Archivo bloqueado por VirusTotal: ${vtResult.malicious}/${vtResult.total} motores lo detectaron como malicioso.`,
+        vtResult,
+      }, { status: 400 })
+    }
+
     // Videos get embedded player URL; other files get download URL
     const url = isVideo
       ? `https://drive.google.com/file/d/${fileId}/preview`
       : `https://drive.google.com/uc?export=download&id=${fileId}`
 
-    return NextResponse.json({ url, type: isVideo ? 'video' : 'file', filename, mimeType: contentType })
+    return NextResponse.json({ url, type: isVideo ? 'video' : 'file', filename, mimeType: contentType, vtResult })
 
   } catch (err: any) {
     console.error('upload error:', err)

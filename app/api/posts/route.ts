@@ -83,7 +83,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   try {
-    const { title, content, category, tags, mediaUrl, mediaType } = await req.json()
+    const { title, content, category, tags, mediaUrl, mediaType, vtAnalysis } = await req.json()
     if (!title?.trim() || !content?.trim() || !category) {
       return NextResponse.json({ error: 'Título, contenido y categoría son requeridos' }, { status: 400 })
     }
@@ -102,6 +102,7 @@ export async function POST(req: Request) {
       mediaType: mediaType || '',
       author: uid,
       status,
+      ...(vtAnalysis ? { vtAnalysis } : {}),
     })
 
     if (!pending) {

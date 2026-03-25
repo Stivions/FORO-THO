@@ -40,6 +40,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isUploading,  setIsUploading]  = useState(false)
   const [error,        setError]        = useState('')
+  const [vtResult,     setVtResult]     = useState<any>(null)
 
   const driveEmbed = mediaMode === 'drive' ? toDriveEmbed(driveLink) : null
   const driveValid  = driveEmbed !== null
@@ -104,6 +105,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
         if (!upRes.ok) { setError(upData.error); return }
         mediaUrl  = upData.url
         mediaType = upData.type ?? (mediaMode === 'image' ? 'image' : 'file')
+        if (upData.vtResult) setVtResult(upData.vtResult)
       } else if (mediaMode === 'drive' && driveEmbed) {
         mediaUrl  = driveEmbed
         mediaType = 'video'
@@ -112,7 +114,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       const res = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), content: content.trim(), category, tags, mediaUrl, mediaType }),
+        body: JSON.stringify({ title: title.trim(), content: content.trim(), category, tags, mediaUrl, mediaType, vtAnalysis: vtResult }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error); return }
