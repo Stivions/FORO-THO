@@ -1,15 +1,17 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { SessionProvider } from '@/components/session-provider'
 import { Providers } from '@/components/providers'
 import './globals.css'
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
   variable: '--font-inter',
 })
-const geistMono = Geist_Mono({ 
+const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: '--font-mono',
 })
@@ -27,15 +29,18 @@ export const viewport: Viewport = {
   colorScheme: 'dark',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Pre-load session on the server so the client never flashes "logged out"
+  const session = await getServerSession(authOptions)
+
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${geistMono.variable} font-sans antialiased`}>
-        <SessionProvider>
+        <SessionProvider session={session}>
           <Providers>
             {children}
           </Providers>

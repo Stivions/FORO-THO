@@ -7,7 +7,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Bell, Heart, MessageCircle, UserPlus, Mail } from 'lucide-react'
-import { useNotifications, type AppNotification } from '@/hooks/use-notifications'
+import { useGlobalNotifications } from '@/components/providers'
+import type { AppNotification } from '@/hooks/use-notifications'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -27,23 +28,20 @@ const typeLabel: Record<string, string> = {
 }
 
 function NotifItem({ n }: { n: AppNotification }) {
-  const who  = n.from?.displayName ?? n.from?.username ?? 'Alguien'
-  const ago  = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: es })
+  const who = n.from?.displayName ?? n.from?.username ?? 'Alguien'
+  const ago = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: es })
 
   return (
     <div className={cn(
       'flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/50 transition-colors',
       !n.read && 'bg-primary/5'
     )}>
-      {/* Avatar */}
       <div className="h-7 w-7 rounded-full bg-zinc-700 flex items-center justify-center text-white text-[10px] font-bold shrink-0 mt-0.5 overflow-hidden">
         {n.from?.avatar
           ? <img src={n.from.avatar} alt={who} className="h-full w-full object-cover" />
           : who.slice(0, 2).toUpperCase()
         }
       </div>
-
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <p className="text-xs leading-snug">
           <span className="font-semibold">{who}</span>
@@ -52,11 +50,7 @@ function NotifItem({ n }: { n: AppNotification }) {
         </p>
         <p className="text-[10px] text-muted-foreground mt-0.5">{ago}</p>
       </div>
-
-      {/* Type icon */}
       <div className="shrink-0 mt-0.5">{typeIcon[n.type]}</div>
-
-      {/* Unread dot */}
       {!n.read && (
         <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
       )}
@@ -65,7 +59,7 @@ function NotifItem({ n }: { n: AppNotification }) {
 }
 
 export function NotificationDropdown() {
-  const { notifications, unread, markAllRead } = useNotifications()
+  const { notifications, unread, markAllRead } = useGlobalNotifications()
 
   return (
     <DropdownMenu onOpenChange={open => { if (open && unread > 0) markAllRead() }}>
@@ -96,7 +90,7 @@ export function NotificationDropdown() {
         ) : (
           <div className="max-h-[380px] overflow-y-auto divide-y divide-border/50">
             {notifications.map(n => (
-              <NotifItem key={n._id} n={n} />
+              <NotifItem key={String(n._id)} n={n} />
             ))}
           </div>
         )}

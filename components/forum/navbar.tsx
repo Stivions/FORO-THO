@@ -25,7 +25,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const { user: dbUser, sessionId } = useCurrentUser()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
@@ -78,55 +78,58 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
         {/* Right */}
         <div className="flex items-center gap-2">
           <NotificationDropdown />
-          {user && (
-            <Button variant="ghost" size="icon" asChild className="relative">
-              <Link href="/messages" title="Mensajes directos">
-                <Mail className="h-5 w-5" />
-              </Link>
-            </Button>
-          )}
 
-          {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={user.image ?? ''} alt={user.name ?? ''} />
-                    <AvatarFallback>{(user.name ?? 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end">
-                <div className="flex items-center gap-2 p-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.image ?? ''} />
-                    <AvatarFallback>{(user.name ?? 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col space-y-0.5">
-                    <p className="text-sm font-medium">{user.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{user.role ?? 'usuario'}</p>
+          {/* While session is loading, show an invisible placeholder to prevent layout shift */}
+          {status === 'loading' ? (
+            <div className="h-9 w-9 rounded-full bg-muted/50 animate-pulse" />
+          ) : user ? (
+            <>
+              <Button variant="ghost" size="icon" asChild className="relative">
+                <Link href="/messages" title="Mensajes directos">
+                  <Mail className="h-5 w-5" />
+                </Link>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user.image ?? ''} alt={user.name ?? ''} />
+                      <AvatarFallback>{(user.name ?? 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end">
+                  <div className="flex items-center gap-2 p-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.image ?? ''} />
+                      <AvatarFallback>{(user.name ?? 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col space-y-0.5">
+                      <p className="text-sm font-medium">{user.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{user.role ?? 'usuario'}</p>
+                    </div>
                   </div>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href={`/profile/${user.id}`} className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />Mi perfil
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />Ajustes
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive cursor-pointer"
-                  onClick={() => signOut({ callbackUrl: '/login' })}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />Cerrar sesión
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={`/profile/${user.id}`} className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />Mi perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />Ajustes
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive cursor-pointer"
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />Cerrar sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : (
             <Button size="sm" asChild>
               <Link href="/login">Entrar</Link>

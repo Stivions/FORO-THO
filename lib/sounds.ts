@@ -9,74 +9,77 @@ function getCtx(): AudioContext {
   return ctx
 }
 
-function tone(
-  frequency: number,
-  startTime: number,
-  duration: number,
-  volume: number,
-  type: OscillatorType = 'sine',
-  audioCtx: AudioContext
-) {
-  const osc  = audioCtx.createOscillator()
-  const gain = audioCtx.createGain()
-  osc.type = type
-  osc.frequency.setValueAtTime(frequency, startTime)
-  gain.gain.setValueAtTime(volume, startTime)
-  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration)
-  osc.connect(gain)
-  gain.connect(audioCtx.destination)
-  osc.start(startTime)
-  osc.stop(startTime + duration)
+/** Call once on first user gesture to pre-unlock AudioContext (browsers require this) */
+export function unlockAudio() {
+  try {
+    const a = getCtx()
+    if (a.state === 'suspended') a.resume().catch(() => {})
+  } catch {}
+}
+
+function playTones(sound: SoundType, a: AudioContext) {
+  const t = a.currentTime
+
+  function tone(
+    frequency: number,
+    startTime: number,
+    duration: number,
+    volume: number,
+    type: OscillatorType = 'sine',
+  ) {
+    const osc  = a.createOscillator()
+    const gain = a.createGain()
+    osc.type = type
+    osc.frequency.setValueAtTime(frequency, startTime)
+    gain.gain.setValueAtTime(volume, startTime)
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration)
+    osc.connect(gain)
+    gain.connect(a.destination)
+    osc.start(startTime)
+    osc.stop(startTime + duration)
+  }
+
+  switch (sound) {
+    case 'join':
+      tone(440, t,        0.12, 0.22)
+      tone(660, t + 0.12, 0.18, 0.22)
+      break
+    case 'leave':
+      tone(660, t,        0.12, 0.18)
+      tone(440, t + 0.12, 0.18, 0.18)
+      break
+    case 'dm':
+      tone(880,  t,       0.08, 0.25)
+      tone(1100, t + 0.1, 0.1,  0.20)
+      break
+    case 'like':
+      tone(1047, t, 0.12, 0.18)
+      break
+    case 'comment':
+      tone(784, t,        0.09, 0.18)
+      tone(784, t + 0.15, 0.09, 0.12)
+      break
+    case 'follow':
+      tone(523, t,       0.1,  0.2)
+      tone(659, t + 0.1, 0.1,  0.2)
+      tone(784, t + 0.2, 0.15, 0.2)
+      break
+    case 'notification':
+      tone(880, t, 0.15, 0.2)
+      break
+  }
 }
 
 export function playSound(sound: SoundType) {
   try {
     const a = getCtx()
-    const t = a.currentTime
-
-    switch (sound) {
-      /* Discord-like join: two ascending tones */
-      case 'join':
-        tone(440, t,       0.12, 0.22, 'sine', a)
-        tone(660, t + 0.12, 0.18, 0.22, 'sine', a)
-        break
-
-      /* Descending two tones on leave */
-      case 'leave':
-        tone(660, t,       0.12, 0.18, 'sine', a)
-        tone(440, t + 0.12, 0.18, 0.18, 'sine', a)
-        break
-
-      /* DM: two quick high pings */
-      case 'dm':
-        tone(880, t,        0.08, 0.25, 'sine', a)
-        tone(1100, t + 0.1, 0.1,  0.20, 'sine', a)
-        break
-
-      /* Like: short bright ping */
-      case 'like':
-        tone(1047, t, 0.12, 0.18, 'sine', a)
-        break
-
-      /* Comment: soft double ping */
-      case 'comment':
-        tone(784, t,       0.09, 0.18, 'sine', a)
-        tone(784, t + 0.15, 0.09, 0.12, 'sine', a)
-        break
-
-      /* Follow: warm ascending */
-      case 'follow':
-        tone(523, t,       0.1, 0.2, 'sine', a)
-        tone(659, t + 0.1, 0.1, 0.2, 'sine', a)
-        tone(784, t + 0.2, 0.15, 0.2, 'sine', a)
-        break
-
-      /* Generic notification */
-      case 'notification':
-        tone(880, t, 0.15, 0.2, 'sine', a)
-        break
+    if (a.state === 'suspended') {
+      // Resume first (needed when no prior user gesture), then play
+      a.resume().then(() => playTones(sound, a)).catch(() => {})
+    } else {
+      playTones(sound, a)
     }
   } catch {
-    // AudioContext blocked (e.g. no user gesture yet) — silently ignore
+    // AudioContext unavailable — silently ignore
   }
 }
