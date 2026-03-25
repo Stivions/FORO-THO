@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Search, Bell, Menu, X, MessageSquare, User, Settings, LogOut } from 'lucide-react'
+import { Search, Bell, Menu, X, MessageSquare, User, Settings, LogOut, Mail } from 'lucide-react'
 import { NotificationDropdown } from './notification-dropdown'
 
 interface NavbarProps {
@@ -78,6 +78,13 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
         {/* Right */}
         <div className="flex items-center gap-2">
           <NotificationDropdown />
+          {user && (
+            <Button variant="ghost" size="icon" asChild className="relative">
+              <Link href="/messages" title="Mensajes directos">
+                <Mail className="h-5 w-5" />
+              </Link>
+            </Button>
+          )}
 
           {user ? (
             <DropdownMenu>

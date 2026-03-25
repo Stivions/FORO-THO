@@ -27,6 +27,7 @@ const PostSchema = new Schema<IPost>(
     tags:         [{ type: String }],
     upvoters:     [{ type: Schema.Types.ObjectId, ref: 'User' }],
     downvoters:   [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    likers:       [{ type: Schema.Types.ObjectId, ref: 'User' }],
     commentsCount: { type: Number, default: 0 },
     isPinned:     { type: Boolean, default: false },
   },

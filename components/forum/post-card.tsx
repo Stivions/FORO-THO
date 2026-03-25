@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   ArrowUp, ArrowDown, MessageCircle, Share2,
-  MoreHorizontal, Flag, Pin, Trash2
+  MoreHorizontal, Flag, Pin, Trash2, Heart,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent,
@@ -43,6 +43,8 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
   const [userVote,  setUserVote]  = useState<'up'|'down'|null>(
     post.upvoters.includes(uid) ? 'up' : post.downvoters.includes(uid) ? 'down' : null
   )
+  const [liked,      setLiked]      = useState((post as any).likers?.includes(uid) ?? false)
+  const [likeCount,  setLikeCount]  = useState((post as any).likers?.length ?? 0)
 
   const vote = async (dir: 'up' | 'down') => {
     if (!uid) return
@@ -56,6 +58,16 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
       setUpvotes(data.upvotes)
       setDownvotes(data.downvotes)
       setUserVote(data.userVote)
+    }
+  }
+
+  const handleLike = async () => {
+    if (!uid) return
+    const res = await fetch(`/api/posts/${post._id}/like`, { method: 'POST' })
+    if (res.ok) {
+      const data = await res.json()
+      setLiked(data.liked)
+      setLikeCount(data.count)
     }
   }
 
@@ -170,6 +182,14 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
                 <Link href={`/post/${post._id}`}>
                   <MessageCircle className="h-4 w-4" />{post.commentsCount}
                 </Link>
+              </Button>
+              <Button
+                variant="ghost" size="sm"
+                className={cn('gap-1.5', liked ? 'text-rose-500' : 'text-muted-foreground')}
+                onClick={handleLike}
+              >
+                <Heart className={cn('h-4 w-4', liked && 'fill-current')} />
+                {likeCount > 0 && <span className="text-xs">{likeCount}</span>}
               </Button>
               <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={handleShare}>
                 <Share2 className="h-4 w-4" />

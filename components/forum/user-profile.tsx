@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   CalendarDays, MessageSquare, Heart, Edit,
-  MapPin, Globe, Twitter, Github, Instagram,
+  MapPin, Globe, Twitter, Github, Instagram, Loader2,
 } from 'lucide-react'
 import { PostCard } from './post-card'
 import { EditProfileModal, type ProfileData } from './edit-profile-modal'
@@ -29,11 +30,15 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ user: initialUser, isCurrentUser = false }: UserProfileProps) {
-  const [user, setUser]     = useState(initialUser)
+  const router = useRouter()
+  const [user, setUser]         = useState(initialUser)
   const [editOpen, setEditOpen] = useState(false)
-  const [posts, setPosts]   = useState<PostData[]>([])
+  const [posts, setPosts]       = useState<PostData[]>([])
   const [postsLoading, setPostsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('posts')
+  const [following, setFollowing]     = useState(false)
+  const [followersCount, setFollowersCount] = useState(initialUser.followersCount ?? 0)
+  const [followLoading, setFollowLoading]   = useState(false)
 
   useEffect(() => {
     if (activeTab !== 'posts') return
@@ -44,6 +49,26 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
       .catch(() => {})
       .finally(() => setPostsLoading(false))
   }, [user._id, activeTab])
+
+  // Check follow status
+  useEffect(() => {
+    if (isCurrentUser) return
+    fetch(`/api/users/${user._id}/follow`)
+      .then(r => r.json())
+      .then(d => { setFollowing(d.following); setFollowersCount(d.followersCount ?? 0) })
+      .catch(() => {})
+  }, [user._id, isCurrentUser])
+
+  const handleFollow = async () => {
+    setFollowLoading(true)
+    try {
+      const res = await fetch(`/api/users/${user._id}/follow`, { method: 'POST' })
+      const d = await res.json()
+      if (res.ok) { setFollowing(d.following); setFollowersCount(d.followersCount) }
+    } finally {
+      setFollowLoading(false)
+    }
+  }
 
   const joinDate = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
@@ -83,8 +108,20 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
               </Button>
             ) : (
               <>
-                <Button variant="outline" size="sm">Mensaje</Button>
-                <Button size="sm">Seguir</Button>
+                <Button variant="outline" size="sm" onClick={() => router.push(`/messages/${user._id}`)}>
+                  <MessageSquare className="h-4 w-4 mr-1" />Mensaje
+                </Button>
+                <Button
+                  size="sm"
+                  variant={following ? 'outline' : 'default'}
+                  onClick={handleFollow}
+                  disabled={followLoading}
+                >
+                  {followLoading
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : following ? 'Siguiendo' : 'Seguir'
+                  }
+                </Button>
               </>
             )}
           </div>
@@ -162,7 +199,7 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
                 <p className="text-xs text-muted-foreground">Likes</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-foreground">{user.followersCount ?? 0}</p>
+                <p className="text-xl font-bold text-foreground">{followersCount}</p>
                 <p className="text-xs text-muted-foreground">Seguidores</p>
               </div>
             </div>

@@ -19,6 +19,7 @@ export interface PostData {
   tags: string[]
   upvoters: string[]
   downvoters: string[]
+  likers: string[]
   commentsCount: number
   isPinned: boolean
   createdAt: string
