@@ -107,7 +107,7 @@ export default function GroupChatPage() {
   const [joined,      setJoined]      = useState(false)
   const [showMembers, setShowMembers] = useState(false)
 
-  const bottomRef     = useRef<HTMLDivElement>(null)
+  const scrollRef     = useRef<HTMLDivElement>(null)
   const fileInputRef  = useRef<HTMLInputElement>(null)
   const lastMsgAt     = useRef<string>(new Date(Date.now() - 5000).toISOString())
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -140,7 +140,7 @@ export default function GroupChatPage() {
             lastMsgAt.current = lastTs
           }
         }
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior }), 80)
+        setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 80)
       })
   }, [groupId])
 
@@ -157,7 +157,7 @@ export default function GroupChatPage() {
             const seen  = new Set(prev.map(m => m._id))
             const added = fresh.filter(m => !seen.has(m._id))
             if (added.length === 0) return prev
-            setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+            setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 50)
             return [...prev, ...added]
           })
         }
@@ -252,7 +252,7 @@ export default function GroupChatPage() {
         }
         setText('')
         setImagePreview(null)
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 50)
       }
     } finally {
       setSending(false)
@@ -314,7 +314,7 @@ export default function GroupChatPage() {
   const canChat = joined && !!sessionId
 
   return (
-    <div className="-mx-4 flex flex-col bg-card border-x border-border overflow-hidden" style={{ height: 'calc(100dvh - 10rem)' }}>
+    <div className="-mx-4 -my-6 flex flex-col bg-card overflow-hidden" style={{ height: 'calc(100dvh - 3.5rem)' }}>
       {/* ── Header ── */}
       <div className="flex items-center gap-2 px-3 py-2 bg-card border-b border-border shrink-0">
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
@@ -357,8 +357,9 @@ export default function GroupChatPage() {
         {/* Messages + input */}
         <div className="flex-1 flex flex-col min-h-0">
 
-          {/* Message list */}
-          <div className="flex-1 overflow-y-auto px-3 py-3">
+          {/* Message list — flex-col-reverse keeps messages anchored to bottom like WhatsApp */}
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3">
+            <div className="flex flex-col justify-end min-h-full gap-0.5">
               {messages.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   Sin mensajes aún. ¡Sé el primero!
@@ -479,7 +480,7 @@ export default function GroupChatPage() {
                 </div>
               )}
 
-              <div ref={bottomRef} />
+            </div>
           </div>
 
           {/* Input bar */}
