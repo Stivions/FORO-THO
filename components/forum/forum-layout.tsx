@@ -7,6 +7,7 @@ import { LeftSidebar } from './left-sidebar'
 import { RightSidebar } from './right-sidebar'
 import { CreatePostModal } from './create-post-modal'
 import { PostFeed } from './post-feed'
+import { TutorialOverlay } from './tutorial-overlay'
 
 interface ForumLayoutProps {
   children?: React.ReactNode
@@ -81,6 +82,9 @@ export function ForumLayout({ children, sort, showRightSidebar = true, fullHeigh
           )}
         </main>
       </div>
+
+      {/* Tutorial overlay — shows once per browser */}
+      <TutorialOverlay />
 
       {/* Create Post Modal */}
       <CreatePostModal

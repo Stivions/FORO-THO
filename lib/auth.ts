@@ -4,7 +4,6 @@ import bcrypt from 'bcryptjs'
 import { connectDB } from './mongodb'
 import { User } from '@/models/User'
 import { BannedIP } from '@/models/BannedIP'
-import { verifyHCaptcha } from './hcaptcha'
 
 function getIP(req: any): string {
   return (
@@ -25,10 +24,6 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
-
-        if (!credentials.captchaToken || !(await verifyHCaptcha(credentials.captchaToken))) {
-          return null
-        }
 
         await connectDB()
 
