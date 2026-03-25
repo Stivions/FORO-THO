@@ -4,9 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
+import { MentionInput } from '@/components/ui/mention-input'
+import { RenderContent } from '@/components/ui/render-content'
 import { Heart, MessageCircle, MoreHorizontal, Flag, Trash2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -19,7 +20,7 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 interface CommentData {
   _id: string
   content: string
-  author: { _id: string; username: string; avatar?: string; displayName?: string }
+  author: { _id: string; username: string; avatar?: string; displayName?: string; badges?: string[] }
   parentComment?: string | null
   likers: string[]
   createdAt: string
@@ -108,10 +109,15 @@ function CommentItem({ comment, depth = 0, postId, currentUserId, onDelete, onRe
             >
               {displayName}
             </Link>
+            {comment.author.badges?.includes('bot') && (
+              <span className="text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded px-1 leading-4 font-medium">BOT</span>
+            )}
             <span className="text-xs text-muted-foreground">{timeAgo(comment.createdAt)}</span>
           </div>
 
-          <p className="text-sm text-foreground mb-2 break-words">{comment.content}</p>
+          <p className="text-sm text-foreground mb-2 break-words">
+            <RenderContent text={comment.content} />
+          </p>
 
           <div className="flex items-center gap-2">
             <Button
@@ -159,11 +165,12 @@ function CommentItem({ comment, depth = 0, postId, currentUserId, onDelete, onRe
 
           {isReplying && (
             <div className="mt-2 space-y-2">
-              <Textarea
-                placeholder={`Responder a ${displayName}...`}
+              <MentionInput
                 value={replyText}
-                onChange={e => setReplyText(e.target.value)}
-                className="min-h-[70px] bg-secondary border-border text-sm resize-none"
+                onChange={setReplyText}
+                placeholder={`Responder a ${displayName}... (usa @usuario para mencionar)`}
+                className="bg-secondary border-border text-sm"
+                minHeight="70px"
               />
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={() => { setIsReplying(false); setReplyText('') }}>
@@ -280,11 +287,12 @@ export function CommentSection({ postId }: CommentSectionProps) {
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-2">
-            <Textarea
-              placeholder="Escribe un comentario..."
+            <MentionInput
               value={newComment}
-              onChange={e => setNewComment(e.target.value)}
-              className="min-h-[80px] bg-secondary border-border resize-none"
+              onChange={setNewComment}
+              placeholder="Escribe un comentario... (usa @usuario para mencionar, @thobot para IA)"
+              className="bg-secondary border-border"
+              minHeight="80px"
             />
             <div className="flex justify-end">
               <Button onClick={submitComment} disabled={!newComment.trim() || isSubmitting}>

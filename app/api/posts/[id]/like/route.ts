@@ -27,15 +27,20 @@ export async function POST(_req: Request, { params }: Ctx) {
     post.likers = post.likers.filter((l: any) => l.toString() !== uid)
   } else {
     post.likers.push(uid)
-    // Notify post author when someone likes (skip self-like)
+    // Notify post author — only one notification per user/post (no spam)
     if (post.author.toString() !== uid) {
-      Notification.create({
-        user: post.author,
-        type: 'post_like',
-        from: uid,
-        post: id,
-        text: post.title?.slice(0, 80) ?? '',
-      }).catch(() => {})
+      const alreadyNotified = await Notification.exists({
+        user: post.author, type: 'post_like', from: uid, post: id,
+      })
+      if (!alreadyNotified) {
+        Notification.create({
+          user: post.author,
+          type: 'post_like',
+          from: uid,
+          post: id,
+          text: post.title?.slice(0, 80) ?? '',
+        }).catch(() => {})
+      }
     }
   }
   await post.save()

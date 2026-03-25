@@ -6,6 +6,7 @@ import { connectDB } from '@/lib/mongodb'
 import { Comment } from '@/models/Comment'
 import { Post } from '@/models/Post'
 import { Notification } from '@/models/Notification'
+import { extractMentions, triggerBotReply, notifyMentions } from '@/lib/thobot'
 
 type Ctx = { params: Promise<{ postId: string }> }
 
@@ -16,11 +17,10 @@ export async function GET(_req: Request, { params }: Ctx) {
 
   await connectDB()
   const all = await Comment.find({ post: postId })
-    .populate('author', 'username avatar displayName')
+    .populate('author', 'username avatar displayName badges')
     .sort({ createdAt: 1 })
     .lean()
 
-  // Build tree: top-level first, then nest replies
   const map = new Map<string, any>()
   const roots: any[] = []
 
@@ -52,7 +52,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
   await connectDB()
   const uid = (session.user as any).id
-  const post = await Post.findById(postId).select('author title').lean()
+  const post = await Post.findById(postId).select('author title content').lean()
 
   const [doc] = await Promise.all([
     Comment.create({
@@ -64,8 +64,8 @@ export async function POST(req: Request, { params }: Ctx) {
     Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } }),
   ])
 
-  // Notify post author (skip if commenter = author)
-  if (post && post.author.toString() !== uid) {
+  // Notify post author (skip self-comment)
+  if (post && (post.author as any).toString() !== uid) {
     Notification.create({
       user: post.author,
       type: 'comment',
@@ -75,7 +75,19 @@ export async function POST(req: Request, { params }: Ctx) {
     }).catch(() => {})
   }
 
-  const populated = await doc.populate('author', 'username avatar displayName')
+  // Process @mentions asynchronously
+  const mentions = extractMentions(content)
+  const postContext = `${(post as any)?.title ?? ''} — ${(post as any)?.content ?? ''}`
+
+  if (mentions.includes('thobot')) {
+    // Fire-and-forget bot reply (reply to the specific comment if it's a reply)
+    triggerBotReply(postId, postContext, content.trim(), parentComment ?? null).catch(() => {})
+  }
+
+  // Notify mentioned users (non-bot)
+  notifyMentions(content, uid, postId, content.trim()).catch(() => {})
+
+  const populated = await doc.populate('author', 'username avatar displayName badges')
   const plain = populated.toObject()
   return NextResponse.json({
     comment: { ...plain, _id: plain._id.toString(), replies: [] }

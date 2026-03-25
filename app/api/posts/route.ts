@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Post } from '@/models/Post'
 import { User } from '@/models/User'
+import { extractMentions, triggerBotReply, notifyMentions } from '@/lib/thobot'
 
 export async function GET(req: Request) {
   try {
@@ -79,10 +80,19 @@ export async function POST(req: Request) {
       author: (session.user as any).id,
     })
 
-    // Incrementar postsCount del usuario
     await User.findByIdAndUpdate((session.user as any).id, { $inc: { postsCount: 1 } })
 
-    const populated = await post.populate('author', 'username avatar displayName')
+    const uid = (session.user as any).id
+    const postContext = `${title.trim()} — ${content.trim()}`
+    const allText = `${title} ${content}`
+    const mentions = extractMentions(allText)
+
+    if (mentions.includes('thobot')) {
+      triggerBotReply(post._id.toString(), postContext, allText, null).catch(() => {})
+    }
+    notifyMentions(allText, uid, post._id.toString(), content.trim()).catch(() => {})
+
+    const populated = await post.populate('author', 'username avatar displayName badges')
     return NextResponse.json(populated, { status: 201 })
   } catch (err) {
     console.error(err)

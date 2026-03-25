@@ -6,7 +6,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bell, Heart, MessageCircle, UserPlus, Mail } from 'lucide-react'
+import { Bell, Heart, MessageCircle, UserPlus, Mail, AtSign } from 'lucide-react'
 import { useGlobalNotifications } from '@/components/providers'
 import type { AppNotification } from '@/hooks/use-notifications'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,7 @@ const typeIcon: Record<string, React.ReactNode> = {
   comment:   <MessageCircle className="h-3.5 w-3.5 text-blue-400" />,
   follow:    <UserPlus className="h-3.5 w-3.5 text-green-400" />,
   dm:        <Mail className="h-3.5 w-3.5 text-purple-400" />,
+  mention:   <AtSign className="h-3.5 w-3.5 text-yellow-400" />,
 }
 
 const typeLabel: Record<string, string> = {
@@ -25,6 +26,7 @@ const typeLabel: Record<string, string> = {
   comment:   'comentó en tu post',
   follow:    'te comenzó a seguir',
   dm:        'te envió un mensaje',
+  mention:   'te mencionó',
 }
 
 function NotifItem({ n }: { n: AppNotification }) {

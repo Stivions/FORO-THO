@@ -5,7 +5,7 @@ import { playSound } from '@/lib/sounds'
 
 export interface AppNotification {
   _id: string
-  type: 'dm' | 'post_like' | 'comment' | 'follow'
+  type: 'dm' | 'post_like' | 'comment' | 'follow' | 'mention'
   from?: { _id: string; username: string; displayName?: string; avatar?: string }
   post?: { _id: string; title?: string }
   text: string
@@ -31,6 +31,7 @@ function showBrowserNotif(notif: AppNotification) {
     post_like: `A ${who} le gustó tu post`,
     comment:   `${who} comentó en tu post`,
     follow:    `${who} te comenzó a seguir`,
+    mention:   `${who} te mencionó`,
   }
   try {
     new Notification('FORO THO', {
@@ -47,6 +48,7 @@ const soundMap: Record<string, Parameters<typeof playSound>[0]> = {
   post_like: 'like',
   comment:   'comment',
   follow:    'follow',
+  mention:   'notification',
 }
 
 export function useNotifications(intervalMs = 6000) {
