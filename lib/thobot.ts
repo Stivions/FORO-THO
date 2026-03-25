@@ -7,7 +7,7 @@ import { Notification } from '@/models/Notification'
 import { GroupMessage } from '@/models/GroupMessage'
 
 export const BOT_USERNAME = 'thobot'
-export const BOT_EMAIL    = 'thobot@forotho.internal'
+export const BOT_EMAIL    = 'thobot@skillallshow.internal'
 // Plain-text password — stored hashed. Use these to log in and customize the bot.
 export const BOT_PASSWORD_PLAIN = 'ThoBot2024!'
 
@@ -26,7 +26,7 @@ export async function getBotUserId(): Promise<string> {
       email:       BOT_EMAIL,
       password:    hashed,
       displayName: 'ThoBot',
-      bio:         'Soy el asistente IA del foro. Mencioname con @thobot para preguntarme lo que quieras.',
+      bio:         'Soy el asistente IA de Skill All Show. Mencioname con @thobot para preguntarme lo que quieras.',
       role:        'user',
       badges:      ['bot', 'verified'],
     })
@@ -83,7 +83,7 @@ export async function triggerBotReply(
   parentCommentId?: string | null,
 ) {
   try {
-    const systemPrompt = `Eres ThoBot, el asistente IA del Foro THO. Reglas estrictas:
+    const systemPrompt = `Eres ThoBot, el asistente IA de Skill All Show. Reglas estrictas:
 
 1. Responde SIEMPRE en el mismo idioma que el usuario (detecta si es español, inglés, etc.)
 2. Sé CONCISO: máximo 2-3 oraciones por defecto. Solo extiéndete si el usuario explícitamente pide "explica más", "detalla", "extiende" o similar.
@@ -122,7 +122,7 @@ export async function triggerBotGroupReply(
   question: string,
 ) {
   try {
-    const systemPrompt = `Eres ThoBot, el asistente IA del Foro THO. Reglas estrictas:
+    const systemPrompt = `Eres ThoBot, el asistente IA de Skill All Show. Reglas estrictas:
 
 1. Responde SIEMPRE en el mismo idioma que el usuario (detecta si es español, inglés, etc.)
 2. Sé CONCISO: máximo 2-3 oraciones por defecto. Solo extiéndete si el usuario pide "explica más", "detalla" o similar.

@@ -36,7 +36,7 @@ function showBrowserNotif(notif: AppNotification) {
     group_update:  notif.text || 'Actualización de tu grupo',
   }
   try {
-    new Notification('FORO THO', {
+    new Notification('Skill All Show', {
       body: messages[notif.type] ?? 'Nueva notificación',
       icon: notif.from?.avatar ?? '/favicon.ico',
     })

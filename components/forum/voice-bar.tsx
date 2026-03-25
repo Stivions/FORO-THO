@@ -148,6 +148,7 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
       >
         <TrackToggle
           source={Track.Source.Microphone}
+          initialState={false}
           className={cn(
             'flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-medium min-w-[60px] transition-colors',
             localParticipant?.isMicrophoneEnabled ? 'bg-zinc-700 text-white' : 'bg-red-600/80 text-white'
@@ -285,9 +286,10 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
           </button>
         )}
 
-        {/* Mic toggle */}
+        {/* Mic toggle — starts OFF (audio=false on LiveKitRoom), user activates manually */}
         <TrackToggle
           source={Track.Source.Microphone}
+          initialState={false}
           className={cn(
             'flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors shrink-0',
             localParticipant?.isMicrophoneEnabled
@@ -349,11 +351,20 @@ export function VoiceBar() {
       serverUrl={serverUrl}
       token={token}
       connect={true}
-      audio={true}
+      audio={false}
       video={false}
       onDisconnected={leave}
+      onError={(err) => console.warn('[VoiceBar] LiveKit error:', err)}
       style={{ display: 'contents' }}
-      options={{ adaptiveStream: true, dynacast: true }}
+      options={{
+        adaptiveStream: true,
+        dynacast: true,
+        publishDefaults: {
+          audioPreset: { maxBitrate: 32000 },
+          dtx: true,
+          stopMicTrackOnMute: false,
+        },
+      }}
     >
       <VoiceBarInner onLeave={leave} />
     </LiveKitRoom>

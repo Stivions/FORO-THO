@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Foro - Comunidad',
-  description: 'Foro de discusiones, comparte y conecta con la comunidad.',
+  title: 'Skill All Show',
+  description: 'Comunidad de aprendizaje y discusión. Comparte, conecta y crece.',
   icons: {
     icon: '/favicon.svg',
   },

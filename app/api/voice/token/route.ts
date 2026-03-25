@@ -23,11 +23,12 @@ export async function GET(req: Request) {
   )
 
   at.addGrant({
-    roomJoin:       true,
+    roomJoin:          true,
     room,
-    canPublish:     true,
-    canSubscribe:   true,
-    canPublishData: true,
+    canPublish:        true,
+    canSubscribe:      true,
+    canPublishData:    true,
+    canUpdateOwnMetadata: true,
   })
 
   return NextResponse.json({
