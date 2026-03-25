@@ -9,38 +9,6 @@ type Mode = 'login' | 'register'
 
 const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY ?? '10000000-ffff-ffff-ffff-000000000001'
 
-/* ── DedSec skull SVG ── */
-function DedSecLogo() {
-  return (
-    <svg viewBox="0 0 120 120" className="w-24 h-24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Outer glow ring */}
-      <circle cx="60" cy="60" r="55" stroke="#00fff5" strokeWidth="1" strokeDasharray="4 3" opacity="0.4"/>
-      {/* Skull shape */}
-      <path d="M60 18 C38 18 24 34 24 52 C24 64 30 74 40 80 L40 96 C40 98 42 100 44 100 L76 100 C78 100 80 98 80 96 L80 80 C90 74 96 64 96 52 C96 34 82 18 60 18Z" fill="#000" stroke="#00fff5" strokeWidth="1.5"/>
-      {/* Left eye */}
-      <ellipse cx="47" cy="52" rx="10" ry="11" fill="#00fff5" opacity="0.9"/>
-      <ellipse cx="47" cy="52" rx="5"  ry="6"  fill="#000"/>
-      <circle  cx="44" cy="49" r="2"   fill="#00fff5" opacity="0.6"/>
-      {/* Right eye */}
-      <ellipse cx="73" cy="52" rx="10" ry="11" fill="#00fff5" opacity="0.9"/>
-      <ellipse cx="73" cy="52" rx="5"  ry="6"  fill="#000"/>
-      <circle  cx="70" cy="49" r="2"   fill="#00fff5" opacity="0.6"/>
-      {/* Nose */}
-      <path d="M57 66 L60 72 L63 66Z" fill="#00fff5" opacity="0.5"/>
-      {/* Teeth */}
-      <rect x="44" y="88" width="8"  height="10" rx="1" fill="#00fff5" opacity="0.7"/>
-      <rect x="56" y="88" width="8"  height="10" rx="1" fill="#00fff5" opacity="0.7"/>
-      <rect x="68" y="88" width="8"  height="10" rx="1" fill="#00fff5" opacity="0.7"/>
-      {/* Jaw line */}
-      <path d="M40 80 Q60 84 80 80" stroke="#00fff5" strokeWidth="1.5" fill="none" opacity="0.5"/>
-      {/* Forehead lines - circuit style */}
-      <path d="M40 30 L40 38 L50 38" stroke="#00fff5" strokeWidth="1" opacity="0.4" fill="none"/>
-      <path d="M80 30 L80 38 L70 38" stroke="#00fff5" strokeWidth="1" opacity="0.4" fill="none"/>
-      <circle cx="40" cy="30" r="2" fill="#00fff5" opacity="0.6"/>
-      <circle cx="80" cy="30" r="2" fill="#00fff5" opacity="0.6"/>
-    </svg>
-  )
-}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -158,8 +126,8 @@ export default function LoginPage() {
 
         {/* Logo + Title */}
         <div className="flex flex-col items-center mb-8 gap-3">
-          <div style={{ filter: 'drop-shadow(0 0 12px #00fff5)' }}>
-            <DedSecLogo />
+          <div style={{ filter: 'drop-shadow(0 0 16px #00fff5)' }}>
+            <img src="/gif.gif" alt="DedSec" className="w-32 h-32 object-contain" />
           </div>
           <h1
             className="dedsec-glitch text-center text-lg font-bold tracking-widest uppercase"
