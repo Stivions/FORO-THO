@@ -12,6 +12,7 @@ import type { AppNotification } from '@/hooks/use-notifications'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
+import Link from 'next/link'
 
 const typeIcon: Record<string, React.ReactNode> = {
   post_like:     <Heart className="h-3.5 w-3.5 text-red-400" />,
@@ -33,15 +34,25 @@ const typeLabel: Record<string, string> = {
   group_update:  '',
 }
 
-function NotifItem({ n }: { n: AppNotification }) {
-  const who = n.from?.displayName ?? n.from?.username ?? 'Alguien'
-  const ago = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: es })
+// Where each notification type should link to when clicked
+function notifHref(n: AppNotification): string | null {
+  if (n.type === 'group_request') return '/admin'
+  if (n.type === 'group_update')  return '/groups'
+  if (n.type === 'dm')            return n.from ? `/messages/${n.from._id}` : '/messages'
+  if (n.type === 'mention' || n.type === 'comment' || n.type === 'post_like') {
+    return n.post ? `/post/${(n.post as any)._id ?? n.post}` : null
+  }
+  if (n.type === 'follow') return n.from ? `/u/${n.from.username}` : null
+  return null
+}
 
-  return (
-    <div className={cn(
-      'flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/50 transition-colors',
-      !n.read && 'bg-primary/5'
-    )}>
+function NotifItem({ n }: { n: AppNotification }) {
+  const who  = n.from?.displayName ?? n.from?.username ?? 'Alguien'
+  const ago  = formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: es })
+  const href = notifHref(n)
+
+  const inner = (
+    <>
       <div className="h-7 w-7 rounded-full bg-zinc-700 flex items-center justify-center text-white text-[10px] font-bold shrink-0 mt-0.5 overflow-hidden">
         {n.from?.avatar
           ? <img src={n.from.avatar} alt={who} className="h-full w-full object-cover" />
@@ -66,6 +77,19 @@ function NotifItem({ n }: { n: AppNotification }) {
       {!n.read && (
         <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 mt-1.5" />
       )}
+    </>
+  )
+
+  const base = cn(
+    'flex items-start gap-2.5 px-3 py-2.5 hover:bg-muted/50 transition-colors w-full text-left',
+    !n.read && 'bg-primary/5',
+    href && 'cursor-pointer'
+  )
+
+  return href ? (
+    <Link href={href} className={base}>{inner}</Link>
+  ) : (
+    <div className={base}>
     </div>
   )
 }
