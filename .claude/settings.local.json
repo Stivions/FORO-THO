@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm dev:*)",
+      "Bash(npm run:*)",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(cmd.exe /c \"taskkill /PID 17228 /F & taskkill /PID 12500 /F & taskkill /PID 7624 /F & taskkill /PID 10468 /F\")",
+      "Bash(netstat -ano)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 17228,12500,7624,10468 -Force -ErrorAction SilentlyContinue; Start-Sleep 1; Get-NetTCPConnection -LocalPort 3000,3001,3002 -State Listen -ErrorAction SilentlyContinue | Select-Object LocalPort,OwningProcess\")",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 17228 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(powershell.exe -Command \"Get-Process -Id 17228 -ErrorAction SilentlyContinue | Select-Object Name,Id\")",
+      "Bash(node --test tests/profile.test.mjs)"
+    ]
+  }
+}

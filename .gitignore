@@ -1,0 +1,18 @@
+# Environment variables
+.env
+.env.*
+.env*.local
+
+# User uploads
+public/uploads/
+
+# Dependencies
+node_modules
+
+# Build output
+.next/
+.vercel/
+
+# OS
+.DS_Store
+clavedrive.json
