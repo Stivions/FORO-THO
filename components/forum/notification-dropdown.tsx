@@ -6,7 +6,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bell, Heart, MessageCircle, UserPlus, Mail, AtSign, Users, CheckCircle } from 'lucide-react'
+import { Bell, Heart, MessageCircle, UserPlus, Mail, AtSign, Users, CheckCircle, FileWarning } from 'lucide-react'
 import { useGlobalNotifications } from '@/components/providers'
 import type { AppNotification } from '@/hooks/use-notifications'
 import { cn } from '@/lib/utils'
@@ -20,8 +20,11 @@ const typeIcon: Record<string, React.ReactNode> = {
   follow:        <UserPlus className="h-3.5 w-3.5 text-green-400" />,
   dm:            <Mail className="h-3.5 w-3.5 text-purple-400" />,
   mention:       <AtSign className="h-3.5 w-3.5 text-yellow-400" />,
-  group_request: <Users className="h-3.5 w-3.5 text-orange-400" />,
-  group_update:  <CheckCircle className="h-3.5 w-3.5 text-green-400" />,
+  group_request:  <Users className="h-3.5 w-3.5 text-orange-400" />,
+  group_update:   <CheckCircle className="h-3.5 w-3.5 text-green-400" />,
+  post_pending:   <FileWarning className="h-3.5 w-3.5 text-orange-400" />,
+  post_approved:  <CheckCircle className="h-3.5 w-3.5 text-green-400" />,
+  post_rejected:  <X className="h-3.5 w-3.5 text-red-400" />,
 }
 
 const typeLabel: Record<string, string> = {
@@ -30,14 +33,21 @@ const typeLabel: Record<string, string> = {
   follow:        'te comenzó a seguir',
   dm:            'te envió un mensaje',
   mention:       'te mencionó',
-  group_request: 'solicitó un grupo',
-  group_update:  '',
+  group_request:  'solicitó un grupo',
+  group_update:   '',
+  post_pending:   'tiene un post pendiente de revisión',
+  post_approved:  '',
+  post_rejected:  '',
 }
 
 // Where each notification type should link to when clicked
 function notifHref(n: AppNotification): string | null {
   if (n.type === 'group_request') return '/admin'
   if (n.type === 'group_update')  return '/groups'
+  if (n.type === 'post_pending')  return '/admin'
+  if (n.type === 'post_approved' || n.type === 'post_rejected') {
+    return n.post ? `/post/${(n.post as any)._id ?? n.post}` : null
+  }
   if (n.type === 'dm')            return n.from ? `/messages/${n.from._id}` : '/messages'
   if (n.type === 'mention' || n.type === 'comment' || n.type === 'post_like') {
     return n.post ? `/post/${(n.post as any)._id ?? n.post}` : null

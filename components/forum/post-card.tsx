@@ -80,8 +80,15 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
     else await navigator.clipboard.writeText(url)
   }
 
-  const role    = (session?.user as any)?.role
-  const isOwner = uid === post.author._id || role === 'admin' || role === 'moderator'
+  const role     = (session?.user as any)?.role
+  const isAdmin  = role === 'admin' || role === 'moderator'
+  const isOwner  = uid === post.author._id || isAdmin
+  const analysis = (post as any).aiAnalysis
+  const verdictStyle = analysis ? {
+    good:       { color: '#00ff88', border: '#00ff8840', label: '✓ IA: Bueno' },
+    suspicious: { color: '#ff9500', border: '#ff950040', label: '⚠ IA: Revisar' },
+    bad:        { color: '#ff003c', border: '#ff003c40', label: '✕ IA: Alerta' },
+  }[analysis.verdict as string] ?? null : null
   const score   = upvotes - downvotes
   const displayName = post.author.displayName || post.author.username
 
@@ -180,6 +187,15 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
               <span style={{ color: '#00fff520' }}>·</span>
               <span className="text-xs font-mono" style={{ color: 'var(--muted-foreground)' }}>{timeAgo(post.createdAt)}</span>
               {post.isPinned && <Pin className="h-3 w-3" style={{ color: '#00fff5' }} />}
+              {isAdmin && verdictStyle && (
+                <span
+                  title={analysis.reason}
+                  className="text-xs font-mono px-1.5 py-0.5 cursor-help"
+                  style={{ color: verdictStyle.color, border: `1px solid ${verdictStyle.border}`, borderRadius: '2px', fontSize: '9px', letterSpacing: '0.05em' }}
+                >
+                  {verdictStyle.label}
+                </span>
+              )}
               <span
                 className="ml-auto text-xs font-mono px-2 py-0.5"
                 style={{

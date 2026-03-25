@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BADGES, ALL_BADGE_IDS, type BadgeId } from '@/lib/badges'
-import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye } from 'lucide-react'
+import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink } from 'lucide-react'
 
 interface AdminUser {
   _id: string
@@ -44,7 +44,10 @@ export default function AdminPage() {
   const [saving,        setSaving]        = useState<string | null>(null)
   const [actioningGroup, setActioningGroup] = useState<string | null>(null)
   const [edits,         setEdits]         = useState<Record<string, { role: string; badges: string[] }>>({})
-  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce'>('groups')
+  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce' | 'posts'>('groups')
+  const [pendingPosts,  setPendingPosts]  = useState<any[]>([])
+  const [postsLoading,  setPostsLoading]  = useState(false)
+  const [actioningPost, setActioningPost] = useState<string | null>(null)
 
   // Ban state
   const [banningId,  setBanningId]  = useState<string | null>(null)
@@ -97,6 +100,35 @@ export default function AdminPage() {
       }
     } finally {
       setActioningGroup(null)
+    }
+  }
+
+  const loadPendingPosts = async () => {
+    setPostsLoading(true)
+    try {
+      const res = await fetch('/api/admin/posts')
+      const data = await res.json()
+      setPendingPosts(data.posts ?? [])
+    } finally {
+      setPostsLoading(false)
+    }
+  }
+
+  const handlePostAction = async (postId: string, action: 'approve' | 'reject') => {
+    setActioningPost(postId)
+    try {
+      const res = await fetch(`/api/admin/posts/${postId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      if (res.ok) {
+        setPendingPosts(prev => prev.map(p =>
+          p._id === postId ? { ...p, status: action === 'approve' ? 'published' : 'rejected' } : p
+        ))
+      }
+    } finally {
+      setActioningPost(null)
     }
   }
 
@@ -254,6 +286,18 @@ export default function AdminPage() {
           >
             <Shield className="h-4 w-4" />
             Usuarios ({users.length})
+          </button>
+          <button
+            onClick={() => { setTab('posts'); loadPendingPosts() }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'posts' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <FileWarning className="h-4 w-4" />
+            Posts
+            {pendingPosts.filter(p => p.status === 'pending').length > 0 && (
+              <span className="bg-orange-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                {pendingPosts.filter(p => p.status === 'pending').length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setTab('announce')}
@@ -489,6 +533,82 @@ export default function AdminPage() {
                 </Card>
               )
             })}
+          </div>
+        ) : tab === 'posts' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {pendingPosts.filter(p => p.status === 'pending').length} pendientes · {pendingPosts.length} total
+              </p>
+              <button onClick={loadPendingPosts} className="text-xs font-mono" style={{ color: '#00fff560' }}>
+                ↻ Actualizar
+              </button>
+            </div>
+            {postsLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : pendingPosts.length === 0 ? (
+              <p className="text-center py-10 text-sm text-muted-foreground">No hay posts pendientes</p>
+            ) : (
+              pendingPosts.map(p => {
+                const analysis = p.aiAnalysis
+                const verdictColor = analysis ? ({ good: '#00ff88', suspicious: '#ff9500', bad: '#ff003c' } as any)[analysis.verdict] : null
+                return (
+                  <Card key={p._id} className={`bg-card border-border ${p.status === 'pending' ? 'border-orange-500/30' : ''}`}>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="font-semibold text-sm truncate">{p.title}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full border font-mono ${
+                              p.status === 'pending'  ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                              p.status === 'published'? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                              'bg-red-500/20 text-red-400 border-red-500/30'
+                            }`}>
+                              {p.status === 'pending' ? '⏳ Pendiente' : p.status === 'published' ? '✓ Aprobado' : '✕ Rechazado'}
+                            </span>
+                            {analysis && (
+                              <span className="text-xs font-mono px-2 py-0.5 rounded" title={analysis.reason}
+                                style={{ color: verdictColor, border: `1px solid ${verdictColor}40`, fontSize: '10px' }}>
+                                IA: {analysis.verdict === 'good' ? '✓ Bueno' : analysis.verdict === 'bad' ? '✕ Alerta' : '⚠ Revisar'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-1 line-clamp-2">{p.content}</p>
+                          {analysis?.reason && (
+                            <p className="text-xs font-mono mb-1" style={{ color: verdictColor ?? '#00fff560' }}>
+                              IA: {analysis.reason}
+                              {analysis.flags?.length > 0 && <span style={{ color: '#ff9500' }}> · {analysis.flags.join(', ')}</span>}
+                            </p>
+                          )}
+                          {p.mediaUrl && (
+                            <a href={p.mediaUrl} target="_blank" rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-mono" style={{ color: '#00fff560' }}>
+                              <ExternalLink className="h-3 w-3" /> Ver adjunto
+                            </a>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            por <span className="font-medium">@{p.author?.username}</span> · {p.category}
+                          </p>
+                        </div>
+                        {p.status === 'pending' && (
+                          <div className="flex gap-2 shrink-0">
+                            <Button size="sm" className="bg-green-600 hover:bg-green-500 text-white gap-1"
+                              disabled={actioningPost === p._id} onClick={() => handlePostAction(p._id, 'approve')}>
+                              {actioningPost === p._id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                              Aprobar
+                            </Button>
+                            <Button size="sm" variant="destructive" className="gap-1"
+                              disabled={actioningPost === p._id} onClick={() => handlePostAction(p._id, 'reject')}>
+                              <X className="h-3.5 w-3.5" />Rechazar
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })
+            )}
           </div>
         ) : tab === 'announce' ? (
           <div className="space-y-6">

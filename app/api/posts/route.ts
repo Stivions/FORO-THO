@@ -4,7 +4,9 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Post } from '@/models/Post'
 import { User } from '@/models/User'
+import { Notification } from '@/models/Notification'
 import { extractMentions, triggerBotReply, notifyMentions } from '@/lib/thobot'
+import { analyzePost } from '@/lib/ai-analysis'
 
 export async function GET(req: Request) {
   try {
@@ -19,7 +21,8 @@ export async function GET(req: Request) {
 
     await connectDB()
 
-    const filter: any = {}
+    // Only show published posts (or legacy posts without status field)
+    const filter: any = { status: { $nin: ['pending', 'rejected'] } }
     if (category) filter.category = category
     if (author)   filter.author = author
     if (search)   filter.$or = [
@@ -68,6 +71,13 @@ export async function GET(req: Request) {
   }
 }
 
+/** Detect if post has media, files or external links — requires moderation */
+function needsModeration(mediaUrl: string, mediaType: string, content: string, title: string): boolean {
+  if (mediaUrl) return true
+  const urlPattern = /https?:\/\//i
+  return urlPattern.test(content) || urlPattern.test(title)
+}
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
@@ -79,30 +89,62 @@ export async function POST(req: Request) {
     }
 
     await connectDB()
+    const uid     = (session.user as any).id
+    const pending = needsModeration(mediaUrl || '', mediaType || '', content.trim(), title.trim())
+    const status  = pending ? 'pending' : 'published'
+
     const post = await Post.create({
-      title: title.trim(),
-      content: content.trim(),
+      title:    title.trim(),
+      content:  content.trim(),
       category,
-      tags: (tags ?? []).slice(0, 5),
+      tags:     (tags ?? []).slice(0, 5),
       mediaUrl:  mediaUrl  || '',
       mediaType: mediaType || '',
-      author: (session.user as any).id,
+      author: uid,
+      status,
     })
 
-    await User.findByIdAndUpdate((session.user as any).id, { $inc: { postsCount: 1 } })
-
-    const uid = (session.user as any).id
-    const postContext = `${title.trim()} — ${content.trim()}`
-    const allText = `${title} ${content}`
-    const mentions = extractMentions(allText)
-
-    if (mentions.includes('thobot')) {
-      triggerBotReply(post._id.toString(), postContext, allText, null).catch(() => {})
+    if (!pending) {
+      await User.findByIdAndUpdate(uid, { $inc: { postsCount: 1 } })
     }
-    notifyMentions(allText, uid, post._id.toString(), content.trim()).catch(() => {})
+
+    // Notify all admins about the pending post
+    if (pending) {
+      const admins = await User.find({ role: 'admin' }, '_id').lean()
+      if (admins.length > 0) {
+        await Notification.insertMany(
+          admins.map(a => ({
+            user: a._id,
+            type: 'post_pending',
+            from: uid,
+            post: post._id,
+            text: `"${title.trim().slice(0, 60)}"`,
+          }))
+        )
+      }
+    }
+
+    // Run AI analysis async (don't block response)
+    analyzePost(title.trim(), content.trim()).then(async (analysis) => {
+      await Post.findByIdAndUpdate(post._id, { $set: { aiAnalysis: analysis } })
+    }).catch(() => {})
+
+    // Bot + mentions (only for published posts)
+    if (!pending) {
+      const postContext = `${title.trim()} — ${content.trim()}`
+      const allText     = `${title} ${content}`
+      const mentions    = extractMentions(allText)
+      if (mentions.includes('thobot')) {
+        triggerBotReply(post._id.toString(), postContext, allText, null).catch(() => {})
+      }
+      notifyMentions(allText, uid, post._id.toString(), content.trim()).catch(() => {})
+    }
 
     const populated = await post.populate('author', 'username avatar displayName badges')
-    return NextResponse.json(populated, { status: 201 })
+    return NextResponse.json(
+      { ...populated.toObject(), pending },
+      { status: 201 }
+    )
   } catch (err) {
     console.error(err)
     return NextResponse.json({ error: 'Error al crear post' }, { status: 500 })

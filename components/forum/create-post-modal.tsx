@@ -117,7 +117,12 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       const data = await res.json()
       if (!res.ok) { setError(data.error); return }
 
-      resetForm(); onClose(); onPostCreated?.()
+      resetForm(); onClose()
+      if (data.pending) {
+        alert('✅ Tu post fue enviado y está pendiente de aprobación por un administrador. Te notificaremos cuando sea revisado.')
+      } else {
+        onPostCreated?.()
+      }
     } catch {
       setError('Error al publicar')
     } finally {
@@ -265,6 +270,14 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
             <p className="text-xs text-muted-foreground mt-1">{tags.length}/5 tags</p>
           </div>
 
+          {/* Moderation warning */}
+          {(mediaMode !== 'none' || /https?:\/\//i.test(content) || /https?:\/\//i.test(title)) && (
+            <div className="flex items-start gap-2 p-3 rounded text-xs font-mono" style={{ background: '#ff950010', border: '1px solid #ff950040', color: '#ff9500' }}>
+              <span>⚠</span>
+              <span>Este post contiene archivos, imágenes o links y <strong>requiere aprobación de un administrador</strong> antes de publicarse. Los posts de solo texto se publican al instante.</span>
+            </div>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-4 border-t border-border">
@@ -274,8 +287,10 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               disabled={!title.trim() || !content.trim() || !category || isSubmitting || (mediaMode === 'drive' && !driveValid)}
             >
               {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Subiendo archivo...</>
-               : isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Publicando...</>
-               : 'Publicar'}
+               : isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
+               : (mediaMode !== 'none' || /https?:\/\//i.test(content) || /https?:\/\//i.test(title))
+                 ? '📨 Enviar para revisión'
+                 : '🚀 Publicar'}
             </Button>
           </div>
         </div>
