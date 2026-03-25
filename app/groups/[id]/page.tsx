@@ -3,14 +3,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { MentionInput } from '@/components/ui/mention-input'
 import { RenderContent } from '@/components/ui/render-content'
 import { UserBadges } from '@/components/forum/user-badges'
-import { ArrowLeft, Users, Send, Loader2, Settings } from 'lucide-react'
+import { ArrowLeft, Users, Send, Loader2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -47,25 +46,27 @@ interface GroupInfo {
 }
 
 export default function GroupChatPage() {
-  const params   = useParams<{ id: string }>()
-  const groupId  = params.id
-  const router   = useRouter()
-  const { data: session }   = useSession()
+  const params  = useParams<{ id: string }>()
+  const groupId = params.id
+  const router  = useRouter()
   const { user: me, sessionId } = useCurrentUser()
 
-  const [group,    setGroup]    = useState<GroupInfo | null>(null)
-  const [messages, setMessages] = useState<GroupMsg[]>([])
-  const [typing,   setTyping]   = useState<TypingUser[]>([])
-  const [text,     setText]     = useState('')
-  const [sending,  setSending]  = useState(false)
-  const [loading,  setLoading]  = useState(true)
-  const [joined,   setJoined]   = useState(false)
+  const [group,       setGroup]       = useState<GroupInfo | null>(null)
+  const [messages,    setMessages]    = useState<GroupMsg[]>([])
+  const [typing,      setTyping]      = useState<TypingUser[]>([])
+  const [text,        setText]        = useState('')
+  const [sending,     setSending]     = useState(false)
+  const [loading,     setLoading]     = useState(true)
+  const [joined,      setJoined]      = useState(false)
   const [showMembers, setShowMembers] = useState(false)
 
   const bottomRef     = useRef<HTMLDivElement>(null)
-  const lastMsgAt     = useRef<string | null>(null)
+  // Initialize to 5s before mount so polling catches new messages even in empty groups
+  const lastMsgAt     = useRef<string>(new Date(Date.now() - 5000).toISOString())
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const isTypingRef   = useRef(false)
+
+  const isAdmin = (me as any)?.role === 'admin'
 
   // Load group info
   useEffect(() => {
@@ -79,22 +80,27 @@ export default function GroupChatPage() {
       .finally(() => setLoading(false))
   }, [groupId, sessionId])
 
-  // Load initial messages
+  // Load initial messages (all history)
   useEffect(() => {
     fetch(`/api/groups/${groupId}/messages`)
       .then(r => r.json())
       .then(d => {
         const msgs: GroupMsg[] = d.messages ?? []
         setMessages(msgs)
-        if (msgs.length > 0) lastMsgAt.current = msgs[msgs.length - 1].createdAt
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+        // Update lastMsgAt only if the last message is newer than our reference
+        if (msgs.length > 0) {
+          const lastTs = msgs[msgs.length - 1].createdAt
+          if (new Date(lastTs) > new Date(lastMsgAt.current)) {
+            lastMsgAt.current = lastTs
+          }
+        }
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'instant' as ScrollBehavior }), 80)
       })
   }, [groupId])
 
-  // Poll for new messages (1.5s)
+  // Poll for new messages every 1.5s — no null check needed
   useEffect(() => {
     const poll = async () => {
-      if (!lastMsgAt.current) return
       try {
         const res  = await fetch(`/api/groups/${groupId}/messages?after=${encodeURIComponent(lastMsgAt.current)}`)
         const data = await res.json()
@@ -102,7 +108,7 @@ export default function GroupChatPage() {
         if (fresh.length > 0) {
           lastMsgAt.current = fresh[fresh.length - 1].createdAt
           setMessages(prev => {
-            const seen = new Set(prev.map(m => m._id))
+            const seen  = new Set(prev.map(m => m._id))
             const added = fresh.filter(m => !seen.has(m._id))
             if (added.length === 0) return prev
             setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
@@ -115,7 +121,7 @@ export default function GroupChatPage() {
     return () => clearInterval(id)
   }, [groupId])
 
-  // Poll typing (1s)
+  // Poll typing indicators every 1s
   useEffect(() => {
     const poll = async () => {
       try {
@@ -128,16 +134,13 @@ export default function GroupChatPage() {
     return () => clearInterval(id)
   }, [groupId, sessionId])
 
-  // Handle typing indicator
   const handleTextChange = useCallback((val: string) => {
     setText(val)
     if (!sessionId) return
-
     if (!isTypingRef.current) {
       isTypingRef.current = true
       fetch(`/api/groups/${groupId}/typing`, { method: 'POST' }).catch(() => {})
     }
-
     clearTimeout(typingTimeout.current)
     typingTimeout.current = setTimeout(() => {
       isTypingRef.current = false
@@ -145,24 +148,27 @@ export default function GroupChatPage() {
     }, 2500)
   }, [groupId, sessionId])
 
-  // Send message
   const sendMessage = useCallback(async () => {
     if (!text.trim() || !sessionId || sending) return
     setSending(true)
     clearTimeout(typingTimeout.current)
     isTypingRef.current = false
     fetch(`/api/groups/${groupId}/typing`, { method: 'DELETE' }).catch(() => {})
-
     try {
       const res  = await fetch(`/api/groups/${groupId}/messages`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text.trim() }),
+        body:    JSON.stringify({ content: text.trim() }),
       })
       const data = await res.json()
       if (res.ok && data.message) {
-        setMessages(prev => [...prev, data.message])
-        lastMsgAt.current = data.message.createdAt
+        setMessages(prev => {
+          if (prev.some(m => m._id === data.message._id)) return prev
+          return [...prev, data.message]
+        })
+        if (new Date(data.message.createdAt) > new Date(lastMsgAt.current)) {
+          lastMsgAt.current = data.message.createdAt
+        }
         setText('')
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
@@ -188,9 +194,20 @@ export default function GroupChatPage() {
         ...prev,
         members: data.joined
           ? [...prev.members, { _id: sessionId, username: me?.username ?? '', displayName: me?.displayName, avatar: me?.avatar }]
-          : prev.members.filter(m => m._id !== sessionId)
+          : prev.members.filter(m => m._id !== sessionId),
       } : prev)
     }
+  }
+
+  const deleteGroup = async () => {
+    if (!confirm(`¿Eliminar el grupo "${group?.name}" permanentemente? Esta acción no se puede deshacer.`)) return
+    const res = await fetch(`/api/admin/groups/${groupId}`, { method: 'DELETE' })
+    if (res.ok) router.push('/groups')
+  }
+
+  const deleteMessage = async (msgId: string) => {
+    const res = await fetch(`/api/groups/${groupId}/messages/${msgId}`, { method: 'DELETE' })
+    if (res.ok) setMessages(prev => prev.filter(m => m._id !== msgId))
   }
 
   if (loading) {
@@ -212,58 +229,93 @@ export default function GroupChatPage() {
     )
   }
 
-  const isMember = joined
-  const canChat  = isMember && !!sessionId
+  const canChat = joined && !!sessionId
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] max-h-[800px] bg-card border border-border rounded-xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border shrink-0">
-        <Button variant="ghost" size="icon" asChild className="shrink-0">
+    /* Break out of ForumLayout's px-4 py-6 padding, fill remaining viewport */
+    <div
+      className="-mx-4 -my-6 flex flex-col bg-background overflow-hidden"
+      style={{ height: 'calc(100dvh - 3.5rem)' }}
+    >
+      {/* ── Header ── */}
+      <div className="flex items-center gap-2 px-3 py-2 bg-card border-b border-border shrink-0">
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
           <Link href="/groups"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
+
         <div className="flex-1 min-w-0">
-          <h2 className="font-semibold truncate">{group.name}</h2>
-          <p className="text-xs text-muted-foreground truncate">{group.description}</p>
+          <h2 className="font-semibold text-sm leading-tight truncate">{group.name}</h2>
+          {group.description && (
+            <p className="text-[11px] text-muted-foreground leading-tight truncate">{group.description}</p>
+          )}
         </div>
+
+        {/* Member count toggle */}
         <button
-          onClick={() => setShowMembers(!showMembers)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          onClick={() => setShowMembers(v => !v)}
+          className={cn(
+            'flex items-center gap-1 text-xs px-2 py-1 rounded-md transition-colors shrink-0',
+            showMembers
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          )}
         >
           <Users className="h-3.5 w-3.5" />
           <span>{group.members.length}</span>
         </button>
+
+        {/* Join/Leave */}
         {sessionId && (
           <Button
             size="sm"
-            variant={isMember ? 'outline' : 'default'}
+            variant={joined ? 'outline' : 'default'}
             onClick={toggleJoin}
-            className="shrink-0 text-xs h-7"
+            className="shrink-0 text-xs h-7 px-3"
           >
-            {isMember ? 'Salir' : 'Unirse'}
+            {joined ? 'Salir' : 'Unirse'}
           </Button>
+        )}
+
+        {/* Admin: delete group */}
+        {isAdmin && (
+          <button
+            onClick={deleteGroup}
+            className="shrink-0 h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title="Eliminar grupo"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         )}
       </div>
 
+      {/* ── Body ── */}
       <div className="flex flex-1 min-h-0">
-        {/* Messages */}
+
+        {/* Messages + input column */}
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Messages list */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
+
+          {/* Message list */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
             {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm">
-                <p>Sin mensajes aún. ¡Sé el primero en escribir!</p>
+              <div className="flex items-center justify-center h-full">
+                <p className="text-sm text-muted-foreground">Sin mensajes aún. ¡Sé el primero!</p>
               </div>
             )}
+
             {messages.map((msg, i) => {
-              const isMine = msg.author._id === sessionId
-              const showAvatar = i === 0 || messages[i - 1].author._id !== msg.author._id
-              const displayName = msg.author.displayName || msg.author.username
+              const isMine     = msg.author._id === sessionId
+              const prevAuthor = messages[i - 1]?.author._id
+              const showHeader = i === 0 || prevAuthor !== msg.author._id
+              const name       = msg.author.displayName || msg.author.username
 
               return (
-                <div key={msg._id} className={cn('flex gap-2', isMine && 'flex-row-reverse')}>
-                  {showAvatar ? (
-                    <Link href={`/u/${msg.author.username}`} className="shrink-0 mt-0.5">
+                <div
+                  key={msg._id}
+                  className={cn('flex gap-2 group/msg', isMine ? 'flex-row-reverse' : 'flex-row', showHeader ? 'mt-3' : 'mt-0.5')}
+                >
+                  {/* Avatar */}
+                  {showHeader ? (
+                    <Link href={`/u/${msg.author.username}`} className="shrink-0 self-end mb-0.5">
                       <Avatar className="h-7 w-7">
                         <AvatarImage src={msg.author.avatar ?? ''} />
                         <AvatarFallback className="text-[10px]">
@@ -274,23 +326,41 @@ export default function GroupChatPage() {
                   ) : (
                     <div className="w-7 shrink-0" />
                   )}
-                  <div className={cn('max-w-[75%]', isMine && 'items-end flex flex-col')}>
-                    {showAvatar && (
-                      <div className={cn('flex items-center gap-1 mb-0.5', isMine && 'flex-row-reverse')}>
-                        <span className="text-xs font-medium">{displayName}</span>
+
+                  <div className={cn('flex flex-col max-w-[78%] sm:max-w-[65%]', isMine && 'items-end')}>
+                    {/* Name + time */}
+                    {showHeader && (
+                      <div className={cn('flex items-center gap-1 mb-0.5 flex-wrap', isMine && 'flex-row-reverse')}>
+                        <span className="text-xs font-semibold">{name}</span>
                         <UserBadges badges={msg.author.badges} size="sm" />
                         <span className="text-[10px] text-muted-foreground">
                           {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true, locale: es })}
                         </span>
                       </div>
                     )}
-                    <div className={cn(
-                      'px-3 py-2 rounded-2xl text-sm break-words',
-                      isMine
-                        ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                        : 'bg-muted text-foreground rounded-tl-sm'
-                    )}>
-                      <RenderContent text={msg.content} />
+
+                    {/* Bubble row */}
+                    <div className={cn('flex items-end gap-1', isMine && 'flex-row-reverse')}>
+                      {/* Admin delete button */}
+                      {isAdmin && (
+                        <button
+                          onClick={() => deleteMessage(msg._id)}
+                          className="shrink-0 opacity-0 group-hover/msg:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
+                          title="Eliminar mensaje"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+
+                      {/* Bubble */}
+                      <div className={cn(
+                        'px-3 py-2 text-sm break-words leading-relaxed',
+                        isMine
+                          ? 'bg-primary text-primary-foreground rounded-2xl rounded-br-sm'
+                          : 'bg-muted text-foreground rounded-2xl rounded-bl-sm',
+                      )}>
+                        <RenderContent text={msg.content} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -299,57 +369,64 @@ export default function GroupChatPage() {
 
             {/* Typing indicator */}
             {typing.length > 0 && (
-              <div className="flex items-center gap-2 py-1">
+              <div className="flex items-center gap-2 mt-3 pl-9">
                 <div className="flex -space-x-1">
                   {typing.slice(0, 3).map(t => (
-                    <div key={t.user} className="h-5 w-5 rounded-full bg-zinc-600 border border-background flex items-center justify-center text-[8px] text-white font-bold overflow-hidden">
-                      {t.avatar ? <img src={t.avatar} alt="" className="h-full w-full object-cover" /> : (t.displayName ?? t.username).slice(0, 1).toUpperCase()}
+                    <div
+                      key={t.user}
+                      className="h-5 w-5 rounded-full bg-zinc-600 border border-background flex items-center justify-center text-[8px] text-white font-bold overflow-hidden"
+                    >
+                      {t.avatar
+                        ? <img src={t.avatar} alt="" className="h-full w-full object-cover" />
+                        : (t.displayName ?? t.username).slice(0, 1).toUpperCase()
+                      }
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <span>
-                    {typing.length === 1
-                      ? `${typing[0].displayName ?? typing[0].username} está escribiendo`
-                      : `${typing.length} personas están escribiendo`}
+                <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                  {typing.length === 1
+                    ? `${typing[0].displayName ?? typing[0].username} está escribiendo`
+                    : `${typing.length} personas están escribiendo`}
+                  <span className="flex gap-0.5 ml-0.5">
+                    {[0, 150, 300].map(d => (
+                      <span key={d} className="animate-bounce inline-block" style={{ animationDelay: `${d}ms` }}>.</span>
+                    ))}
                   </span>
-                  <span className="flex gap-0.5">
-                    <span className="animate-bounce inline-block" style={{ animationDelay: '0ms' }}>.</span>
-                    <span className="animate-bounce inline-block" style={{ animationDelay: '150ms' }}>.</span>
-                    <span className="animate-bounce inline-block" style={{ animationDelay: '300ms' }}>.</span>
-                  </span>
-                </div>
+                </span>
               </div>
             )}
 
             <div ref={bottomRef} />
           </div>
 
-          {/* Input */}
+          {/* Input bar */}
           {canChat ? (
-            <div className="flex items-end gap-2 px-4 py-3 border-t border-border bg-background/50 shrink-0">
+            <div className="flex items-end gap-2 px-3 py-2.5 border-t border-border bg-card shrink-0">
               <MentionInput
                 value={text}
                 onChange={handleTextChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Escribe un mensaje... (Enter para enviar, Shift+Enter para nueva línea)"
-                className="bg-secondary border-border text-sm"
+                placeholder="Mensaje… (Enter envía · Shift+Enter nueva línea)"
+                className="bg-muted/60 border-transparent text-sm"
                 minHeight="40px"
-                style={{ maxHeight: '120px' }}
+                style={{ maxHeight: '100px' }}
               />
               <Button
                 size="icon"
                 onClick={sendMessage}
                 disabled={!text.trim() || sending}
-                className="h-10 w-10 shrink-0"
+                className="h-10 w-10 shrink-0 rounded-xl"
               >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sending
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <Send className="h-4 w-4" />
+                }
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-center px-4 py-3 border-t border-border text-sm text-muted-foreground bg-background/50 shrink-0">
+            <div className="flex items-center justify-center px-4 py-3 border-t border-border bg-card shrink-0 text-sm text-muted-foreground">
               {sessionId
-                ? <Button size="sm" onClick={toggleJoin}>Unirte para participar</Button>
+                ? <Button size="sm" onClick={toggleJoin}>Unirte al grupo para participar</Button>
                 : <span><Link href="/login" className="text-primary hover:underline">Inicia sesión</Link> para participar</span>
               }
             </div>
@@ -358,24 +435,28 @@ export default function GroupChatPage() {
 
         {/* Members panel */}
         {showMembers && (
-          <div className="w-52 border-l border-border bg-background/50 overflow-y-auto shrink-0">
-            <div className="px-3 py-2 border-b border-border">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <div className="w-44 sm:w-52 border-l border-border bg-card/60 flex flex-col shrink-0 overflow-hidden">
+            <div className="px-3 py-2 border-b border-border shrink-0">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Miembros ({group.members.length})
               </span>
             </div>
-            <div className="p-2 space-y-1">
+            <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
               {group.members.map(m => (
-                <Link key={m._id} href={`/u/${m.username}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors">
+                <Link
+                  key={m._id}
+                  href={`/u/${m.username}`}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/50 transition-colors"
+                >
                   <Avatar className="h-6 w-6 shrink-0">
                     <AvatarImage src={m.avatar ?? ''} />
-                    <AvatarFallback className="text-[9px]">{m.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback className="text-[9px]">
+                      {m.username.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-medium truncate">{m.displayName ?? m.username}</span>
-                      <UserBadges badges={m.badges} size="sm" />
-                    </div>
+                  <div className="flex-1 min-w-0 flex items-center gap-1">
+                    <span className="text-xs font-medium truncate">{m.displayName ?? m.username}</span>
+                    <UserBadges badges={m.badges} size="sm" />
                   </div>
                 </Link>
               ))}
