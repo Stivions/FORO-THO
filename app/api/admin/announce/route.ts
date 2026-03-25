@@ -26,16 +26,7 @@ export async function POST(req: Request) {
   if (emails.length === 0)
     return NextResponse.json({ error: 'No hay usuarios registrados' }, { status: 400 })
 
-  const from = process.env.RESEND_FROM ?? ''
-
-  // Guard: resend.dev sandbox only works for the account owner — require a verified domain
-  const hasDomain = from && !from.includes('onboarding@resend.dev')
-  if (!hasDomain) {
-    return NextResponse.json({
-      error: 'DOMAIN_NOT_CONFIGURED — Configura RESEND_FROM con tu dominio verificado en Resend para poder enviar a todos los usuarios.',
-    }, { status: 503 })
-  }
-
+  const from = process.env.RESEND_FROM ?? 'Skill All Show <noreply@stivion.com>'
   const html = buildAnnouncementEmail(body)
 
   // Resend allows up to 50 recipients per request

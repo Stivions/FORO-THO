@@ -527,7 +527,7 @@ export default function AdminPage() {
               </button>
 
               <p className="text-xs font-mono text-center" style={{ color: '#00fff530' }}>
-                ⚠ Requiere dominio verificado en Resend. Configura RESEND_FROM=noreply@tudominio.com en Netlify.
+                ⚠ Esto enviará un email desde noreply@stivion.com a cada usuario registrado.
               </p>
             </div>
           </div>
