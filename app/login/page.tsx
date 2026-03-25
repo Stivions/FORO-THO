@@ -76,6 +76,7 @@ export default function LoginPage() {
     if (!captchaToken) { setError('// ERROR: CAPTCHA_NOT_VERIFIED'); return }
 
     setLoading(true)
+    let newUserId: string | null = null
     try {
       if (mode === 'register') {
         const res = await fetch('/api/auth/register', {
@@ -96,16 +97,25 @@ export default function LoginPage() {
           setLoading(false)
           return
         }
+        // Save the new user's ID so we can roll back if login fails
+        newUserId = data.user?.id ?? null
       }
 
       const result = await signIn('credentials', {
         email: form.email,
         password: form.password,
-        captchaToken,
         redirect: false,
       })
 
       if (result?.error) {
+        // If we just registered and login fails, roll back the created user
+        if (newUserId) {
+          await fetch('/api/auth/register/rollback', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: newUserId }),
+          })
+        }
         if (result.error === 'IP_BANNED')
           setError('// ERROR: IP_BANEADA — Contacta a un administrador')
         else if (result.error === 'ACCOUNT_BANNED')
