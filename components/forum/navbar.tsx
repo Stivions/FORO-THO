@@ -33,7 +33,7 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     const q = searchQuery.trim()
-    if (q) router.push(`/?q=${encodeURIComponent(q)}`)
+    if (q) router.push(`/search?q=${encodeURIComponent(q)}`)
     else router.push('/')
   }
 
@@ -67,7 +67,7 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Buscar posts, tags..."
+              placeholder="Buscar posts, usuarios, tags..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 bg-secondary border-border focus:border-primary"

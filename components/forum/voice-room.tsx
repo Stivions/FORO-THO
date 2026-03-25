@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import {
   LiveKitRoom,
@@ -14,10 +14,9 @@ import {
 import { Track } from 'livekit-client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Mic, MicOff, PhoneOff, Volume2, Users,
-  Loader2, Monitor, MonitorOff, Maximize2, X, Video, VideoOff,
+  Loader2, Monitor, MonitorOff, Maximize2, Minimize2, X, Video, VideoOff,
 } from 'lucide-react'
 
 /* ─── Mini participant tile in sidebar ─────────────────── */
@@ -30,8 +29,7 @@ function ParticipantBadge({ participant }: { participant: any }) {
     <div className="flex items-center gap-2 px-1 py-0.5 rounded">
       <div className={cn(
         'relative flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white shrink-0 transition-all',
-        isSpeaking ? 'ring-2 ring-green-400' : 'bg-secondary',
-        isSpeaking ? 'bg-green-500' : 'bg-muted'
+        isSpeaking ? 'ring-2 ring-green-400 bg-green-500' : 'bg-muted'
       )}>
         {name.slice(0, 2).toUpperCase()}
         <span className={cn(
@@ -47,16 +45,33 @@ function ParticipantBadge({ participant }: { participant: any }) {
 
 /* ─── Stream overlay (full screen video/screen share) ──── */
 function StreamOverlay({ onLeave, onClose }: { onLeave: () => void; onClose: () => void }) {
+  const containerRef               = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const screenTracks = useTracks([Track.Source.ScreenShare], { onlySubscribed: false })
   const cameraTracks = useTracks([Track.Source.Camera],      { onlySubscribed: false })
   const participants = useParticipants()
   const { localParticipant } = useLocalParticipant()
 
   const activeTracks = screenTracks.length > 0 ? screenTracks : cameraTracks
-  const isSharing = localParticipant?.isScreenShareEnabled
+  const isSharing    = localParticipant?.isScreenShareEnabled
+
+  /* Fullscreen API */
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen?.()
+    } else {
+      document.exitFullscreen?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
+  }, [])
 
   return (
-    <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col">
+    <div ref={containerRef} className="fixed inset-0 z-[100] bg-zinc-950 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-800 shrink-0">
         <div className="flex items-center gap-2">
@@ -66,22 +81,40 @@ function StreamOverlay({ onLeave, onClose }: { onLeave: () => void; onClose: () 
           </span>
           <span className="text-zinc-400 text-xs">· {participants.length} participante{participants.length !== 1 ? 's' : ''}</span>
         </div>
-        <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors p-1">
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleFullscreen}
+            className="text-zinc-400 hover:text-white transition-colors p-1.5 rounded hover:bg-zinc-800"
+            title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          >
+            {isFullscreen
+              ? <Minimize2 className="h-4 w-4" />
+              : <Maximize2 className="h-4 w-4" />
+            }
+          </button>
+          <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors p-1.5 rounded hover:bg-zinc-800">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Main video */}
-      <div className="flex-1 overflow-hidden p-2 flex items-center justify-center bg-black">
+      {/* Main video area */}
+      <div className="flex-1 overflow-hidden flex items-center justify-center bg-black min-h-0">
         {activeTracks.length > 0 ? (
           <div className={cn(
-            'w-full h-full grid gap-1',
-            activeTracks.length === 1 ? '' : 'grid-cols-2'
+            'w-full h-full grid gap-1 p-1',
+            activeTracks.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
           )}>
             {activeTracks.map(track => (
-              <div key={track.publication.trackSid} className="relative rounded-lg overflow-hidden bg-zinc-900 flex items-center justify-center">
-                <VideoTrack trackRef={track} className="w-full h-full object-contain" />
-                <span className="absolute bottom-2 left-2 text-white text-xs bg-black/60 px-2 py-0.5 rounded-full">
+              <div
+                key={track.publication.trackSid}
+                className="relative rounded-lg overflow-hidden bg-zinc-900 flex items-center justify-center min-h-0"
+              >
+                <VideoTrack
+                  trackRef={track}
+                  className="absolute inset-0 w-full h-full object-contain"
+                />
+                <span className="absolute bottom-2 left-2 text-white text-xs bg-black/70 px-2 py-0.5 rounded-full z-10">
                   {track.participant.name ?? track.participant.identity}
                 </span>
               </div>
@@ -89,18 +122,19 @@ function StreamOverlay({ onLeave, onClose }: { onLeave: () => void; onClose: () 
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center text-zinc-500 gap-3">
-            <Monitor className="h-12 w-12 opacity-30" />
+            <Monitor className="h-16 w-16 opacity-20" />
             <p className="text-sm">Nadie está compartiendo aún</p>
+            <p className="text-xs text-zinc-600">Usa "Go Live" o "Cámara" para transmitir</p>
           </div>
         )}
       </div>
 
       {/* Participants strip */}
       {participants.length > 0 && (
-        <div className="flex gap-2 px-3 py-2 bg-zinc-900 overflow-x-auto shrink-0">
+        <div className="flex gap-2 px-3 py-2 bg-zinc-900/80 overflow-x-auto shrink-0">
           {participants.map(p => (
             <div key={p.sid} className={cn(
-              'flex flex-col items-center gap-1 px-2 py-1 rounded-lg min-w-[52px] transition-all',
+              'flex flex-col items-center gap-1 px-2 py-1 rounded-lg min-w-[52px] transition-all shrink-0',
               p.isSpeaking && 'ring-1 ring-green-400 bg-green-900/20'
             )}>
               <div className="h-7 w-7 rounded-full bg-zinc-700 flex items-center justify-center text-white text-[10px] font-bold">
@@ -117,9 +151,7 @@ function StreamOverlay({ onLeave, onClose }: { onLeave: () => void; onClose: () 
         {/* Mic */}
         <TrackToggle source={Track.Source.Microphone} className={cn(
           'flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-medium transition-colors min-w-[60px]',
-          localParticipant?.isMicrophoneEnabled
-            ? 'bg-zinc-700 text-white'
-            : 'bg-red-600/80 text-white'
+          localParticipant?.isMicrophoneEnabled ? 'bg-zinc-700 text-white' : 'bg-red-600/80 text-white'
         )}>
           {localParticipant?.isMicrophoneEnabled
             ? <><Mic className="h-5 w-5" /><span>Micro</span></>
@@ -130,9 +162,7 @@ function StreamOverlay({ onLeave, onClose }: { onLeave: () => void; onClose: () 
         {/* Camera */}
         <TrackToggle source={Track.Source.Camera} className={cn(
           'flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-medium transition-colors min-w-[60px]',
-          localParticipant?.isCameraEnabled
-            ? 'bg-blue-600 text-white'
-            : 'bg-zinc-700 text-white'
+          localParticipant?.isCameraEnabled ? 'bg-blue-600 text-white' : 'bg-zinc-700 text-white'
         )}>
           {localParticipant?.isCameraEnabled
             ? <><Video className="h-5 w-5" /><span>Cam ON</span></>
@@ -170,17 +200,14 @@ function RoomInner({ onLeave }: { onLeave: () => void }) {
   const screenTracks = useTracks([Track.Source.ScreenShare], { onlySubscribed: false })
   const [showStream, setShowStream] = useState(false)
 
-  const hasStream = screenTracks.length > 0 ||
-    participants.some(p => p.isCameraEnabled)
+  const hasStream = screenTracks.length > 0 || participants.some(p => p.isCameraEnabled)
 
   return (
     <>
       <RoomAudioRenderer />
 
-      {/* Stream overlay */}
       {showStream && <StreamOverlay onLeave={onLeave} onClose={() => setShowStream(false)} />}
 
-      {/* Live indicator */}
       {hasStream && !showStream && (
         <button
           onClick={() => setShowStream(true)}
@@ -192,7 +219,6 @@ function RoomInner({ onLeave }: { onLeave: () => void }) {
         </button>
       )}
 
-      {/* Participants */}
       <div className="space-y-0.5 mt-1">
         {participants.map(p => (
           <ParticipantBadge key={p.sid} participant={p} />
@@ -202,7 +228,6 @@ function RoomInner({ onLeave }: { onLeave: () => void }) {
         )}
       </div>
 
-      {/* Controls */}
       <div className="flex gap-1.5 mt-2">
         <TrackToggle source={Track.Source.Microphone} className={cn(
           'flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-xs font-medium transition-colors',
@@ -246,7 +271,6 @@ export function VoiceRoom({ categoryId, categoryName }: VoiceRoomProps) {
 
   const roomName = `category-${categoryId}`
 
-  // Poll participants even without joining — shows who's connected
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>
     const poll = async () => {
@@ -278,15 +302,12 @@ export function VoiceRoom({ categoryId, categoryName }: VoiceRoomProps) {
     }
   }, [roomName])
 
-  const handleLeave = useCallback(() => {
-    setToken(null)
-  }, [])
+  const handleLeave = useCallback(() => setToken(null), [])
 
   if (!session) return null
 
   return (
     <div className="border-t border-border/50 mt-1 pt-1">
-      {/* Header toggle — shows count even when collapsed */}
       <button
         className="flex items-center gap-2 w-full px-2 py-1 rounded hover:bg-secondary/50 transition-colors text-xs text-muted-foreground"
         onClick={() => setExpanded(e => !e)}
@@ -302,7 +323,6 @@ export function VoiceRoom({ categoryId, categoryName }: VoiceRoomProps) {
         <Users className="h-3 w-3" />
       </button>
 
-      {/* Always show who's connected even when not joined */}
       {outsideUsers.length > 0 && !token && (
         <div className="px-2 pb-1 flex flex-col gap-0.5">
           {outsideUsers.map(u => (
@@ -337,6 +357,7 @@ export function VoiceRoom({ categoryId, categoryName }: VoiceRoomProps) {
               video={false}
               onDisconnected={handleLeave}
               style={{ display: 'contents' }}
+              options={{ adaptiveStream: true, dynacast: true }}
             >
               <RoomInner onLeave={handleLeave} />
             </LiveKitRoom>
