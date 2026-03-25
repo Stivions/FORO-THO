@@ -162,6 +162,17 @@
   0%, 100% { text-shadow: 0 0 4px #00fff5, 0 0 10px #00fff5, 0 0 20px #00fff5; }
   50%      { text-shadow: 0 0 2px #00fff5, 0 0 6px  #00fff5, 0 0 12px #00fff5; }
 }
+@keyframes orbit-float {
+  0%   { transform: translate(0px,    0px)   rotate(0deg); }
+  25%  { transform: translate(10px,  -12px)  rotate(90deg); }
+  50%  { transform: translate(0px,  -20px)   rotate(180deg); }
+  75%  { transform: translate(-10px, -12px)  rotate(270deg); }
+  100% { transform: translate(0px,    0px)   rotate(360deg); }
+}
+@keyframes glow-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #00fff540, 0 0 20px #00fff540, 0 0 40px #00fff520; }
+  50%      { box-shadow: 0 0 0 3px #00fff5,   0 0 30px #00fff580, 0 0 60px #00fff540; }
+}
 @keyframes border-flicker {
   0%, 100% { box-shadow: 0 0 6px #00fff540, inset 0 0 6px #00fff510; }
   50%      { box-shadow: 0 0 12px #00fff580, inset 0 0 10px #00fff520; }

@@ -174,8 +174,16 @@ export default function LoginPage() {
 
         {/* Logo + Title */}
         <div className="flex flex-col items-center mb-8 gap-3">
-          <div style={{ filter: 'drop-shadow(0 0 16px #00fff5)' }}>
-            <img src="/gif.gif" alt="DedSec" className="w-32 h-32 object-contain" />
+          <div style={{
+            width: '140px', height: '140px', borderRadius: '50%',
+            overflow: 'hidden', flexShrink: 0,
+            animation: 'orbit-float 6s ease-in-out infinite, glow-ring-pulse 3s ease-in-out infinite',
+          }}>
+            <img
+              src="/gif.gif"
+              alt="DedSec"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+            />
           </div>
           <h1
             className="dedsec-glitch text-center text-lg font-bold tracking-widest uppercase"
