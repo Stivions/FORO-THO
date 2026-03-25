@@ -425,7 +425,7 @@ export default function GroupChatPage() {
                           <div className={cn(
                             'px-3 py-2 text-sm break-words leading-relaxed rounded-2xl',
                             isMine
-                              ? 'my-bubble bg-primary text-primary-foreground rounded-br-sm'
+                              ? 'bg-white text-gray-900 rounded-br-sm'
                               : 'bg-muted text-foreground rounded-bl-sm',
                             !msg.content && msg.imageUrl && 'p-1 bg-transparent'
                           )}>
@@ -437,7 +437,7 @@ export default function GroupChatPage() {
                                 className="rounded-xl max-w-full max-h-64 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
                               />
                             )}
-                            {msg.content && <RenderContent text={msg.content} inverted={isMine} />}
+                            {msg.content && <RenderContent text={msg.content} />}
                             {driveLinks.map(link => <DriveEmbed key={link} url={link} />)}
                           </div>
                         </div>
