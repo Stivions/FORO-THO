@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BADGES, ALL_BADGE_IDS, type BadgeId } from '@/lib/badges'
-import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock } from 'lucide-react'
+import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2 } from 'lucide-react'
 
 interface AdminUser {
   _id: string
@@ -43,7 +43,9 @@ export default function AdminPage() {
   const [edits,         setEdits]         = useState<Record<string, { role: string; badges: string[] }>>({})
   const [tab,           setTab]           = useState<'users' | 'groups'>('groups')
 
-  const isAdmin = (user as any)?.role === 'admin'
+  const isAdmin      = (user as any)?.role === 'admin'
+  const isSuperAdmin = (user as any)?.email === 'stevensanchezdev@gmail.com' && isAdmin
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
     if (!sessionId) return
@@ -106,6 +108,20 @@ export default function AdminPage() {
     }))
   }
 
+  const resetForum = async () => {
+    if (!confirm('⚠️ Esto borrará TODOS los posts, comentarios, mensajes y grupos.\n\nLos usuarios y categorías se conservan.\n\n¿Confirmar?')) return
+    setResetting(true)
+    try {
+      const res = await fetch('/api/admin/reset', { method: 'DELETE' })
+      if (res.ok) {
+        alert('✅ Foro limpiado.')
+        router.refresh()
+      }
+    } finally {
+      setResetting(false)
+    }
+  }
+
   const saveUser = async (userId: string) => {
     setSaving(userId)
     try {
@@ -135,6 +151,18 @@ export default function AdminPage() {
             <Shield className="h-6 w-6 text-orange-400" />
             <h1 className="text-2xl font-bold">Panel de Administración</h1>
           </div>
+          {isSuperAdmin && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={resetForum}
+              disabled={resetting}
+              className="ml-auto gap-2"
+            >
+              {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Limpiar foro
+            </Button>
+          )}
         </div>
 
         {/* Tabs */}
