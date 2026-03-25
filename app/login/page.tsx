@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
@@ -19,6 +19,35 @@ export default function LoginPage() {
   const captchaRef = useRef<HCaptcha>(null)
 
   const [form, setForm] = useState({ username: '', email: '', password: '' })
+  const [muted, setMuted] = useState(false)
+  const [audioReady, setAudioReady] = useState(false)
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  // Autoplay on mount — if blocked, show play button on first interaction
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.volume = 0.5
+    audio.play().then(() => setAudioReady(true)).catch(() => {
+      // Blocked by browser — play on first user interaction
+      const unlock = () => {
+        audio.play().then(() => setAudioReady(true)).catch(() => {})
+        document.removeEventListener('click', unlock)
+        document.removeEventListener('keydown', unlock)
+      }
+      document.addEventListener('click', unlock)
+      document.addEventListener('keydown', unlock)
+    })
+    return () => { audio.pause() }
+  }, [])
+
+  const toggleMute = () => {
+    const audio = audioRef.current
+    if (!audio) return
+    audio.muted = !audio.muted
+    setMuted(audio.muted)
+  }
+
   const handle = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -80,6 +109,25 @@ export default function LoginPage() {
       className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       style={{ background: '#000', fontFamily: 'monospace' }}
     >
+      {/* Audio */}
+      <audio ref={audioRef} src="/cancionlogin.mp3" loop preload="auto" />
+
+      {/* Mute button — bottom right */}
+      <button
+        onClick={toggleMute}
+        title={muted ? 'Activar sonido' : 'Silenciar'}
+        style={{
+          position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 999,
+          background: 'transparent', border: '1px solid #00fff540',
+          color: '#00fff5', fontFamily: 'monospace', fontSize: '10px',
+          letterSpacing: '0.1em', padding: '6px 10px', cursor: 'pointer',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 0 10px #00fff540')}
+        onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
+      >
+        {muted ? '▶ SND OFF' : '♪ SND ON'}
+      </button>
       {/* Background grid */}
       <div className="absolute inset-0 pointer-events-none" style={{
         backgroundImage: `linear-gradient(#00fff508 1px, transparent 1px), linear-gradient(90deg, #00fff508 1px, transparent 1px)`,
