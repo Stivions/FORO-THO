@@ -134,7 +134,7 @@ export default function LoginPage() {
             backgroundImage: `url(${src})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            opacity: i === bgIndex ? (bgFading ? 0 : 0.18) : 0,
+            opacity: i === bgIndex ? (bgFading ? 0 : 0.12) : 0,
             transition: 'opacity 0.8s ease-in-out',
             pointerEvents: 'none',
           }}
