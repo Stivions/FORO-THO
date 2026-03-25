@@ -45,27 +45,27 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
   const screenTracks = useTracks([Track.Source.ScreenShare], { onlySubscribed: false })
   const cameraTracks = useTracks([Track.Source.Camera],      { onlySubscribed: false })
   const participants = useParticipants()
-  const { localParticipant } = useLocalParticipant()
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant()
   const activeTracks = screenTracks.length > 0 ? screenTracks : cameraTracks
   const isSharing    = localParticipant?.isScreenShareEnabled
-  const isMicOn      = localParticipant?.isMicrophoneEnabled ?? false
-  const isCamOn      = localParticipant?.isCameraEnabled     ?? false
+  const isMicOn      = isMicrophoneEnabled
+  const isCamOn      = isCameraEnabled
 
   const toggleMic = useCallback(async () => {
     if (!localParticipant || micLoading || !connected) return
     setMicLoading(true)
-    try { await localParticipant.setMicrophoneEnabled(!isMicOn) }
+    try { await localParticipant.setMicrophoneEnabled(!localParticipant.isMicrophoneEnabled) }
     catch (err) { console.warn('[StreamOverlay] Mic toggle failed:', err) }
     finally { setMicLoading(false) }
-  }, [localParticipant, isMicOn, micLoading, connected])
+  }, [localParticipant, micLoading, connected])
 
   const toggleCam = useCallback(async () => {
     if (!localParticipant || camLoading || !connected) return
     setCamLoading(true)
-    try { await localParticipant.setCameraEnabled(!isCamOn) }
+    try { await localParticipant.setCameraEnabled(!localParticipant.isCameraEnabled) }
     catch (err) { console.warn('[StreamOverlay] Cam toggle failed:', err) }
     finally { setCamLoading(false) }
-  }, [localParticipant, isCamOn, camLoading, connected])
+  }, [localParticipant, camLoading, connected])
 
   const toggleFS = useCallback(() => {
     if (!caps.canFullscreen) return
@@ -222,7 +222,7 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
 /* ─── Persistent bottom bar inner (inside LiveKitRoom) ─── */
 function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
   const { roomLabel }        = useVoiceRoom()
-  const { localParticipant } = useLocalParticipant()
+  const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant()
   const participants  = useParticipants()
   const screenTracks  = useTracks([Track.Source.ScreenShare], { onlySubscribed: false })
   const cameraTracks  = useTracks([Track.Source.Camera],      { onlySubscribed: false })
@@ -234,32 +234,33 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
   const connected = connState === ConnectionState.Connected
   const hasStream = screenTracks.length > 0 || participants.some(p => p.isCameraEnabled)
 
-  const isMicOn = localParticipant?.isMicrophoneEnabled ?? false
-  const isCamOn = localParticipant?.isCameraEnabled     ?? false
+  // Use reactive values from the hook (not participant object directly — won't re-render)
+  const isMicOn = isMicrophoneEnabled
+  const isCamOn = isCameraEnabled
 
   const toggleMic = useCallback(async () => {
     if (!localParticipant || micLoading || !connected) return
     setMicLoading(true)
     try {
-      await localParticipant.setMicrophoneEnabled(!isMicOn)
+      await localParticipant.setMicrophoneEnabled(!localParticipant.isMicrophoneEnabled)
     } catch (err) {
       console.warn('[VoiceBar] Mic toggle failed:', err)
     } finally {
       setMicLoading(false)
     }
-  }, [localParticipant, isMicOn, micLoading, connected])
+  }, [localParticipant, micLoading, connected])
 
   const toggleCam = useCallback(async () => {
     if (!localParticipant || camLoading || !connected) return
     setCamLoading(true)
     try {
-      await localParticipant.setCameraEnabled(!isCamOn)
+      await localParticipant.setCameraEnabled(!localParticipant.isCameraEnabled)
     } catch (err) {
       console.warn('[VoiceBar] Camera toggle failed:', err)
     } finally {
       setCamLoading(false)
     }
-  }, [localParticipant, isCamOn, camLoading, connected])
+  }, [localParticipant, camLoading, connected])
 
   // Track participant changes to play join/leave sounds
   const prevSidsRef = useRef<Set<string>>(new Set())
