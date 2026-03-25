@@ -3,7 +3,16 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { connectDB } from './mongodb'
 import { User } from '@/models/User'
+import { BannedIP } from '@/models/BannedIP'
 import { verifyHCaptcha } from './hcaptcha'
+
+function getIP(req: any): string {
+  return (
+    req?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req?.headers?.['x-real-ip'] ||
+    ''
+  )
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,7 +23,7 @@ export const authOptions: NextAuthOptions = {
         password:     { label: 'Password', type: 'password' },
         captchaToken: { label: 'Captcha',  type: 'text' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null
 
         if (!credentials.captchaToken || !(await verifyHCaptcha(credentials.captchaToken))) {
@@ -22,11 +31,25 @@ export const authOptions: NextAuthOptions = {
         }
 
         await connectDB()
+
+        // Check IP ban before even looking up the user
+        const ip = getIP(req)
+        if (ip) {
+          const ipBanned = await BannedIP.findOne({ ip }).lean()
+          if (ipBanned) throw new Error('IP_BANNED')
+        }
+
         const user = await User.findOne({ email: credentials.email })
         if (!user) return null
 
+        // Check account ban
+        if (user.banned) throw new Error('ACCOUNT_BANNED')
+
         const valid = await bcrypt.compare(credentials.password, user.password)
         if (!valid) return null
+
+        // Store last known IP for admin reference
+        if (ip) await User.updateOne({ _id: user._id }, { $set: { lastKnownIp: ip } })
 
         return {
           id: user._id.toString(),

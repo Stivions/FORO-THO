@@ -19,8 +19,7 @@ export async function POST(req: Request) {
 
   await connectDB()
 
-  // Get all user emails
-  const users = await User.find({}, 'email').lean()
+  const users = await User.find({ banned: { $ne: true } }, 'email').lean()
   const emails = users.map(u => u.email).filter(Boolean)
 
   if (emails.length === 0)
@@ -29,20 +28,23 @@ export async function POST(req: Request) {
   const from = process.env.RESEND_FROM ?? 'Skill All Show <noreply@stivion.com>'
   const html = buildAnnouncementEmail(body)
 
-  // Resend allows up to 50 recipients per request
-  const CHUNK = 50
+  // Send individually so no recipient sees other emails
+  // Resend batch: up to 100 objects per call
+  const CHUNK = 100
   let sent = 0
   const errors: string[] = []
 
   for (let i = 0; i < emails.length; i += CHUNK) {
     const chunk = emails.slice(i, i + CHUNK)
     try {
-      await resend.emails.send({
-        from,
-        to: chunk,
-        subject: body.subject,
-        html,
-      })
+      await resend.batch.send(
+        chunk.map(to => ({
+          from,
+          to: [to],
+          subject: body.subject,
+          html,
+        }))
+      )
       sent += chunk.length
     } catch (err: any) {
       errors.push(err?.message ?? 'error desconocido')

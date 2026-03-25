@@ -19,6 +19,9 @@ interface AdminUser {
   avatar?: string
   role: string
   badges: string[]
+  banned?: boolean
+  bannedReason?: string
+  lastKnownIp?: string
   createdAt: string
 }
 
@@ -42,6 +45,12 @@ export default function AdminPage() {
   const [actioningGroup, setActioningGroup] = useState<string | null>(null)
   const [edits,         setEdits]         = useState<Record<string, { role: string; badges: string[] }>>({})
   const [tab,           setTab]           = useState<'users' | 'groups' | 'announce'>('groups')
+
+  // Ban state
+  const [banningId,  setBanningId]  = useState<string | null>(null)
+  const [banReason,  setBanReason]  = useState<Record<string, string>>({})
+  const [banIp,      setBanIp]      = useState<Record<string, boolean>>({})
+  const [banConfirm, setBanConfirm] = useState<string | null>(null) // userId showing inline confirm
 
   // Announce state
   const [announce, setAnnounce] = useState({
@@ -88,6 +97,32 @@ export default function AdminPage() {
       }
     } finally {
       setActioningGroup(null)
+    }
+  }
+
+  const handleBan = async (userId: string, action: 'ban' | 'unban') => {
+    setBanningId(userId)
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/ban`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          reason: banReason[userId] || '',
+          banIp: banIp[userId] || false,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setUsers(prev => prev.map(u =>
+          u._id === userId ? { ...u, banned: data.banned, bannedReason: banReason[userId] || '' } : u
+        ))
+        setBanConfirm(null)
+        setBanReason(p => ({ ...p, [userId]: '' }))
+        setBanIp(p => ({ ...p, [userId]: false }))
+      }
+    } finally {
+      setBanningId(null)
     }
   }
 
@@ -318,7 +353,58 @@ export default function AdminPage() {
                           <span className="font-semibold">{u.displayName || u.username}</span>
                           <span className="text-sm text-muted-foreground">@{u.username}</span>
                           <span className="text-xs text-muted-foreground">{u.email}</span>
+                          {u.banned && (
+                            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: '#ff003c20', color: '#ff003c', border: '1px solid #ff003c40' }}>
+                              BANEADO {u.bannedReason ? `· ${u.bannedReason}` : ''}
+                            </span>
+                          )}
                         </div>
+                        {u.lastKnownIp && (
+                          <div className="text-xs font-mono mb-1" style={{ color: '#00fff540' }}>
+                            IP: {u.lastKnownIp}
+                          </div>
+                        )}
+
+                        {/* Inline ban form */}
+                        {banConfirm === u._id && !u.banned && (
+                          <div className="mt-2 p-3 rounded space-y-2" style={{ background: '#ff003c08', border: '1px solid #ff003c30' }}>
+                            <input
+                              placeholder="Razón del ban (opcional)"
+                              value={banReason[u._id] || ''}
+                              onChange={e => setBanReason(p => ({ ...p, [u._id]: e.target.value }))}
+                              className="dedsec-input w-full px-2 py-1 text-xs outline-none"
+                              style={{ borderColor: '#ff003c40 !important' }}
+                            />
+                            {u.lastKnownIp && (
+                              <label className="flex items-center gap-2 text-xs font-mono cursor-pointer" style={{ color: '#ff003c80' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={banIp[u._id] || false}
+                                  onChange={e => setBanIp(p => ({ ...p, [u._id]: e.target.checked }))}
+                                  className="accent-red-500"
+                                />
+                                Banear también IP ({u.lastKnownIp})
+                              </label>
+                            )}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleBan(u._id, 'ban')}
+                                disabled={banningId === u._id}
+                                className="flex-1 py-1 text-xs font-mono rounded transition-all"
+                                style={{ background: '#ff003c20', border: '1px solid #ff003c', color: '#ff003c' }}
+                              >
+                                {banningId === u._id ? '...' : '⛔ CONFIRMAR BAN'}
+                              </button>
+                              <button
+                                onClick={() => setBanConfirm(null)}
+                                className="px-3 py-1 text-xs font-mono rounded"
+                                style={{ border: '1px solid #00fff530', color: '#00fff560' }}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Role selector */}
                         <div className="flex items-center gap-2 mb-3">
@@ -360,19 +446,44 @@ export default function AdminPage() {
                         </div>
                       </div>
 
-                      <Button
-                        size="sm"
-                        variant={changed ? 'default' : 'outline'}
-                        disabled={!changed || saving === u._id}
-                        onClick={() => saveUser(u._id)}
-                        className="shrink-0"
-                      >
-                        {saving === u._id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <><Save className="h-4 w-4 mr-1" />Guardar</>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant={changed ? 'default' : 'outline'}
+                          disabled={!changed || saving === u._id}
+                          onClick={() => saveUser(u._id)}
+                        >
+                          {saving === u._id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <><Save className="h-4 w-4 mr-1" />Guardar</>
+                          )}
+                        </Button>
+
+                        {u.role !== 'admin' && (
+                          u.banned ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={banningId === u._id}
+                              onClick={() => handleBan(u._id, 'unban')}
+                              className="text-green-400 border-green-400/40 hover:bg-green-400/10 text-xs"
+                            >
+                              {banningId === u._id ? <Loader2 className="h-3 w-3 animate-spin" /> : '✓ Desbanear'}
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setBanConfirm(banConfirm === u._id ? null : u._id)}
+                              className="text-xs"
+                              style={{ color: '#ff003c', borderColor: '#ff003c40' }}
+                            >
+                              Banear
+                            </Button>
+                          )
                         )}
-                      </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

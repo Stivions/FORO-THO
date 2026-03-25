@@ -99,7 +99,12 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        setError('// ERROR: CREDENCIALES_INVALIDAS')
+        if (result.error === 'IP_BANNED')
+          setError('// ERROR: IP_BANEADA — Contacta a un administrador')
+        else if (result.error === 'ACCOUNT_BANNED')
+          setError('// ERROR: CUENTA_BANEADA — Contacta a un administrador')
+        else
+          setError('// ERROR: CREDENCIALES_INVALIDAS')
         captchaRef.current?.resetCaptcha()
         setCaptchaToken(null)
       } else {

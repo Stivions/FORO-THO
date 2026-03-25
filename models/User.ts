@@ -23,6 +23,10 @@ export interface IUser {
   likesCount: number
   followersCount: number
   followingCount: number
+  banned: boolean
+  bannedReason?: string
+  bannedAt?: Date
+  lastKnownIp?: string
   createdAt: Date
 }
 
@@ -49,6 +53,10 @@ const UserSchema = new Schema<IUser>(
     likesCount:     { type: Number, default: 0 },
     followersCount: { type: Number, default: 0 },
     followingCount: { type: Number, default: 0 },
+    banned:         { type: Boolean, default: false },
+    bannedReason:   { type: String, default: '' },
+    bannedAt:       { type: Date, default: null },
+    lastKnownIp:    { type: String, default: '' },
   },
   { timestamps: true }
 )
