@@ -21,6 +21,7 @@ export default function LoginPage() {
   const captchaRef = useRef<HCaptcha>(null)
 
   const [form, setForm] = useState({ username: '', email: '', password: '' })
+  const [alreadyExists, setAlreadyExists] = useState(false)
   const [muted, setMuted] = useState(false)
   const [audioReady, setAudioReady] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
@@ -70,6 +71,7 @@ export default function LoginPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    setAlreadyExists(false)
 
     if (!captchaToken) { setError('// ERROR: CAPTCHA_NOT_VERIFIED'); return }
 
@@ -83,7 +85,12 @@ export default function LoginPage() {
         })
         const data = await res.json()
         if (!res.ok) {
-          setError(`// ERROR: ${data.error?.toUpperCase()}`)
+          if (data.alreadyExists) {
+            setAlreadyExists(true)
+            setError(`// ${data.error?.toUpperCase()} — ¿Ya tienes cuenta? Inicia sesión`)
+          } else {
+            setError(`// ERROR: ${data.error?.toUpperCase()}`)
+          }
           captchaRef.current?.resetCaptcha()
           setCaptchaToken(null)
           setLoading(false)
@@ -119,6 +126,7 @@ export default function LoginPage() {
   function switchMode() {
     setMode(mode === 'login' ? 'register' : 'login')
     setError('')
+    setAlreadyExists(false)
     setCaptchaToken(null)
     captchaRef.current?.resetCaptcha()
   }
@@ -291,9 +299,28 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <p style={{ color: '#ff003c', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
-              {error}
-            </p>
+            <div>
+              <p style={{ color: '#ff003c', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+                {error}
+              </p>
+              {alreadyExists && (
+                <button
+                  type="button"
+                  onClick={switchMode}
+                  style={{
+                    marginTop: '6px',
+                    background: '#00fff510', border: '1px solid #00fff540',
+                    color: '#00fff5', fontFamily: 'monospace', fontSize: '11px',
+                    letterSpacing: '0.1em', padding: '5px 12px', cursor: 'pointer',
+                    width: '100%', transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#00fff520')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#00fff510')}
+                >
+                  {'> IR A INICIAR SESIÓN'}
+                </button>
+              )}
+            </div>
           )}
 
           <button
