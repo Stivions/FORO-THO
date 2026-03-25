@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Message } from '@/models/Message'
 import { User } from '@/models/User'
+import { Notification } from '@/models/Notification'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,6 +87,12 @@ export async function POST(req: Request) {
   await connectDB()
 
   const msg = await Message.create({ from: uid, to, content: content.trim() })
+  Notification.create({
+    user: to,
+    type: 'dm',
+    from: uid,
+    text: content.trim().slice(0, 80),
+  }).catch(() => {})
   const populated = await msg.populate([
     { path: 'from', select: 'username displayName avatar' },
     { path: 'to',   select: 'username displayName avatar' },

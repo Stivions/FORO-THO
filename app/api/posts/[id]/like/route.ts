@@ -4,6 +4,7 @@ import mongoose from 'mongoose'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Post } from '@/models/Post'
+import { Notification } from '@/models/Notification'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -26,6 +27,16 @@ export async function POST(_req: Request, { params }: Ctx) {
     post.likers = post.likers.filter((l: any) => l.toString() !== uid)
   } else {
     post.likers.push(uid)
+    // Notify post author when someone likes (skip self-like)
+    if (post.author.toString() !== uid) {
+      Notification.create({
+        user: post.author,
+        type: 'post_like',
+        from: uid,
+        post: id,
+        text: post.title?.slice(0, 80) ?? '',
+      }).catch(() => {})
+    }
   }
   await post.save()
 

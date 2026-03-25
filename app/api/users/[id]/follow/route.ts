@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Follow } from '@/models/Follow'
 import { User } from '@/models/User'
+import { Notification } from '@/models/Notification'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -51,6 +52,7 @@ export async function POST(_req: Request, { params }: Ctx) {
       User.findByIdAndUpdate(uid, { $inc: { followingCount: 1 } }),
       User.findByIdAndUpdate(id,  { $inc: { followersCount: 1 } }),
     ])
+    Notification.create({ user: id, type: 'follow', from: uid }).catch(() => {})
     const count = await Follow.countDocuments({ following: id })
     return NextResponse.json({ following: true, followersCount: count })
   }

@@ -13,6 +13,7 @@ import {
 import { Track } from 'livekit-client'
 import { useVoiceRoom } from '@/contexts/voice-room-context'
 import { cn } from '@/lib/utils'
+import { playSound } from '@/lib/sounds'
 import {
   Mic, MicOff, PhoneOff, Monitor, MonitorOff,
   Maximize2, Minimize2, X, Video, VideoOff,
@@ -209,6 +210,36 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
   const [showStream, setShowStream] = useState(false)
   const caps = useCapabilities()
   const hasStream = screenTracks.length > 0 || participants.some(p => p.isCameraEnabled)
+
+  // Track participant changes to play join/leave sounds
+  const prevSidsRef = useRef<Set<string>>(new Set())
+  const joinedRef   = useRef(false) // has our local join sound played?
+  useEffect(() => {
+    const currentSids = new Set(participants.map(p => p.sid))
+
+    // Play join sound for ourselves on first render
+    if (!joinedRef.current && participants.length > 0) {
+      joinedRef.current = true
+      playSound('join')
+    }
+
+    // Remote participants joining
+    for (const p of participants) {
+      if (!prevSidsRef.current.has(p.sid) && p.sid !== localParticipant?.sid) {
+        // Only play if we've already seeded the set (not on initial load)
+        if (prevSidsRef.current.size > 0) playSound('join')
+      }
+    }
+
+    // Remote participants leaving
+    for (const sid of prevSidsRef.current) {
+      if (!currentSids.has(sid)) {
+        playSound('leave')
+      }
+    }
+
+    prevSidsRef.current = currentSids
+  }, [participants, localParticipant?.sid])
 
   return (
     <>

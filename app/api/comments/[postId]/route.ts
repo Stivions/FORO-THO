@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Comment } from '@/models/Comment'
 import { Post } from '@/models/Post'
+import { Notification } from '@/models/Notification'
 
 type Ctx = { params: Promise<{ postId: string }> }
 
@@ -50,15 +51,29 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!content?.trim()) return NextResponse.json({ error: 'Contenido requerido' }, { status: 400 })
 
   await connectDB()
+  const uid = (session.user as any).id
+  const post = await Post.findById(postId).select('author title').lean()
+
   const [doc] = await Promise.all([
     Comment.create({
       content: content.trim(),
-      author: (session.user as any).id,
+      author: uid,
       post: postId,
       parentComment: parentComment ?? null,
     }),
     Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } }),
   ])
+
+  // Notify post author (skip if commenter = author)
+  if (post && post.author.toString() !== uid) {
+    Notification.create({
+      user: post.author,
+      type: 'comment',
+      from: uid,
+      post: postId,
+      text: content.trim().slice(0, 80),
+    }).catch(() => {})
+  }
 
   const populated = await doc.populate('author', 'username avatar displayName')
   const plain = populated.toObject()
