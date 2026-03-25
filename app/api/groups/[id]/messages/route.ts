@@ -36,9 +36,9 @@ export async function POST(req: Request, { params }: Ctx) {
 
   const { id } = await params
   const uid = (session.user as any).id
-  const { content } = await req.json()
+  const { content, imageUrl } = await req.json()
 
-  if (!content?.trim())
+  if (!content?.trim() && !imageUrl)
     return NextResponse.json({ error: 'Mensaje vacío' }, { status: 400 })
 
   await connectDB()
@@ -47,7 +47,12 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!group || (group as any).status !== 'approved')
     return NextResponse.json({ error: 'Grupo no disponible' }, { status: 404 })
 
-  const msg = await GroupMessage.create({ group: id, author: uid, content: content.trim() })
+  const msg = await GroupMessage.create({
+    group: id,
+    author: uid,
+    content: content?.trim() ?? '',
+    imageUrl: imageUrl ?? null,
+  })
   const populated = await msg.populate('author', 'username displayName avatar badges')
 
   return NextResponse.json({ message: populated }, { status: 201 })

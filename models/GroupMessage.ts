@@ -2,9 +2,10 @@ import { Schema, model, models } from 'mongoose'
 
 const GroupMessageSchema = new Schema(
   {
-    group:   { type: Schema.Types.ObjectId, ref: 'DiscussionGroup', required: true },
-    author:  { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    content: { type: String, required: true, maxlength: 2000 },
+    group:    { type: Schema.Types.ObjectId, ref: 'DiscussionGroup', required: true },
+    author:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    content:  { type: String, default: '', maxlength: 2000 },
+    imageUrl: { type: String, default: null },
   },
   { timestamps: true }
 )
