@@ -7,11 +7,11 @@ import {
   useParticipants,
   useLocalParticipant,
   useTracks,
+  useTrackToggle,
   VideoTrack,
   TrackToggle,
 } from '@livekit/components-react'
-import { Track, ConnectionState } from 'livekit-client'
-import { useConnectionState } from '@livekit/components-react'
+import { Track } from 'livekit-client'
 import { useVoiceRoom } from '@/contexts/voice-room-context'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
@@ -22,11 +22,10 @@ import {
 
 /* ── detect capabilities after mount (avoids SSR false-negatives) ── */
 function useCapabilities() {
-  const [caps, setCaps] = useState({ canFullscreen: false, canScreenShare: true }) // default: show all buttons
+  const [caps, setCaps] = useState({ canFullscreen: false, canScreenShare: true })
   useEffect(() => {
     setCaps({
       canFullscreen:  !!document.fullscreenEnabled,
-      // hide screen share only on iOS where getDisplayMedia is truly absent
       canScreenShare: !!(navigator.mediaDevices && 'getDisplayMedia' in navigator.mediaDevices),
     })
   }, [])
@@ -36,36 +35,21 @@ function useCapabilities() {
 /* ─── Stream overlay ─── */
 function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [isFS, setIsFS]             = useState(false)
-  const [micLoading, setMicLoading] = useState(false)
-  const [camLoading, setCamLoading] = useState(false)
-  const caps                        = useCapabilities()
-  const connState                   = useConnectionState()
-  const connected                   = connState === ConnectionState.Connected
+  const [isFS, setIsFS] = useState(false)
+  const caps            = useCapabilities()
+
   const screenTracks = useTracks([Track.Source.ScreenShare], { onlySubscribed: false })
   const cameraTracks = useTracks([Track.Source.Camera],      { onlySubscribed: false })
   const participants = useParticipants()
-  const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant()
+  const { localParticipant } = useLocalParticipant()
   const activeTracks = screenTracks.length > 0 ? screenTracks : cameraTracks
   const isSharing    = localParticipant?.isScreenShareEnabled
-  const isMicOn      = isMicrophoneEnabled
-  const isCamOn      = isCameraEnabled
 
-  const toggleMic = useCallback(async () => {
-    if (!localParticipant || micLoading || !connected) return
-    setMicLoading(true)
-    try { await localParticipant.setMicrophoneEnabled(!localParticipant.isMicrophoneEnabled) }
-    catch (err) { console.warn('[StreamOverlay] Mic toggle failed:', err) }
-    finally { setMicLoading(false) }
-  }, [localParticipant, micLoading, connected])
-
-  const toggleCam = useCallback(async () => {
-    if (!localParticipant || camLoading || !connected) return
-    setCamLoading(true)
-    try { await localParticipant.setCameraEnabled(!localParticipant.isCameraEnabled) }
-    catch (err) { console.warn('[StreamOverlay] Cam toggle failed:', err) }
-    finally { setCamLoading(false) }
-  }, [localParticipant, camLoading, connected])
+  // useTrackToggle: uses LiveKit's own observable system — reactive + no initialState issue
+  const { toggle: toggleMic, enabled: isMicOn, pending: micPending } =
+    useTrackToggle({ source: Track.Source.Microphone })
+  const { toggle: toggleCam, enabled: isCamOn, pending: camPending } =
+    useTrackToggle({ source: Track.Source.Camera })
 
   const toggleFS = useCallback(() => {
     if (!caps.canFullscreen) return
@@ -81,7 +65,6 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
   }, [caps.canFullscreen])
 
   return (
-    /* use 100dvh so iOS browser chrome doesn't cut the bottom */
     <div
       ref={containerRef}
       className="fixed inset-0 z-[200] bg-zinc-950 flex flex-col"
@@ -99,7 +82,6 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
           </span>
         </div>
         <div className="flex items-center gap-1">
-          {/* Only show fullscreen button if API is supported (desktop) */}
           {caps.canFullscreen && (
             <button
               onClick={toggleFS}
@@ -164,14 +146,14 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
         </div>
       )}
 
-      {/* Controls — padding bottom for iOS home indicator */}
+      {/* Controls */}
       <div
         className="flex items-center justify-center gap-2 p-3 bg-zinc-900 border-t border-zinc-800 shrink-0 flex-wrap"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <button
-          onClick={toggleMic}
-          disabled={micLoading || !connected}
+          onClick={() => toggleMic()}
+          disabled={micPending}
           className={cn(
             'flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-medium min-w-[60px] transition-colors',
             isMicOn ? 'bg-zinc-700 text-white hover:bg-zinc-600' : 'bg-red-600/80 text-white hover:bg-red-600'
@@ -181,8 +163,8 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
         </button>
 
         <button
-          onClick={toggleCam}
-          disabled={camLoading || !connected}
+          onClick={() => toggleCam()}
+          disabled={camPending}
           className={cn(
             'flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-medium min-w-[60px] transition-colors',
             isCamOn ? 'bg-blue-600 text-white hover:bg-blue-500' : 'bg-zinc-700 text-white hover:bg-zinc-600'
@@ -191,7 +173,6 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
           {isCamOn ? <><Video className="h-5 w-5" /><span>Cam ON</span></> : <><VideoOff className="h-5 w-5" /><span>Cámara</span></>}
         </button>
 
-        {/* Screen share — only show if supported */}
         {caps.canScreenShare && (
           <TrackToggle
             source={Track.Source.ScreenShare}
@@ -221,72 +202,40 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
 
 /* ─── Persistent bottom bar inner (inside LiveKitRoom) ─── */
 function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
-  const { roomLabel }        = useVoiceRoom()
-  const { localParticipant, isMicrophoneEnabled, isCameraEnabled } = useLocalParticipant()
+  const { roomLabel }    = useVoiceRoom()
+  const { localParticipant } = useLocalParticipant()
   const participants  = useParticipants()
   const screenTracks  = useTracks([Track.Source.ScreenShare], { onlySubscribed: false })
-  const cameraTracks  = useTracks([Track.Source.Camera],      { onlySubscribed: false })
-  const [showStream,  setShowStream]  = useState(false)
-  const [micLoading,  setMicLoading]  = useState(false)
-  const [camLoading,  setCamLoading]  = useState(false)
-  const caps      = useCapabilities()
-  const connState = useConnectionState()
-  const connected = connState === ConnectionState.Connected
+  const [showStream, setShowStream] = useState(false)
+  const caps = useCapabilities()
+
   const hasStream = screenTracks.length > 0 || participants.some(p => p.isCameraEnabled)
 
-  // Use reactive values from the hook (not participant object directly — won't re-render)
-  const isMicOn = isMicrophoneEnabled
-  const isCamOn = isCameraEnabled
-
-  const toggleMic = useCallback(async () => {
-    if (!localParticipant || micLoading || !connected) return
-    setMicLoading(true)
-    try {
-      await localParticipant.setMicrophoneEnabled(!localParticipant.isMicrophoneEnabled)
-    } catch (err) {
-      console.warn('[VoiceBar] Mic toggle failed:', err)
-    } finally {
-      setMicLoading(false)
-    }
-  }, [localParticipant, micLoading, connected])
-
-  const toggleCam = useCallback(async () => {
-    if (!localParticipant || camLoading || !connected) return
-    setCamLoading(true)
-    try {
-      await localParticipant.setCameraEnabled(!localParticipant.isCameraEnabled)
-    } catch (err) {
-      console.warn('[VoiceBar] Camera toggle failed:', err)
-    } finally {
-      setCamLoading(false)
-    }
-  }, [localParticipant, camLoading, connected])
+  // useTrackToggle: uses LiveKit's own observable — reactive, no initialState issue
+  const { toggle: toggleMic, enabled: isMicOn, pending: micPending } =
+    useTrackToggle({ source: Track.Source.Microphone })
+  const { toggle: toggleCam, enabled: isCamOn, pending: camPending } =
+    useTrackToggle({ source: Track.Source.Camera })
 
   // Track participant changes to play join/leave sounds
   const prevSidsRef = useRef<Set<string>>(new Set())
-  const joinedRef   = useRef(false) // has our local join sound played?
+  const joinedRef   = useRef(false)
   useEffect(() => {
     const currentSids = new Set(participants.map(p => p.sid))
 
-    // Play join sound for ourselves on first render
     if (!joinedRef.current && participants.length > 0) {
       joinedRef.current = true
       playSound('join')
     }
 
-    // Remote participants joining
     for (const p of participants) {
       if (!prevSidsRef.current.has(p.sid) && p.sid !== localParticipant?.sid) {
-        // Only play if we've already seeded the set (not on initial load)
         if (prevSidsRef.current.size > 0) playSound('join')
       }
     }
 
-    // Remote participants leaving
     for (const sid of prevSidsRef.current) {
-      if (!currentSids.has(sid)) {
-        playSound('leave')
-      }
+      if (!currentSids.has(sid)) playSound('leave')
     }
 
     prevSidsRef.current = currentSids
@@ -336,10 +285,10 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
           </button>
         )}
 
-        {/* Mic toggle — direct call, no TrackToggle conflict */}
+        {/* Mic toggle */}
         <button
-          onClick={toggleMic}
-          disabled={micLoading || !connected}
+          onClick={() => toggleMic()}
+          disabled={micPending}
           className={cn(
             'flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors shrink-0',
             isMicOn
@@ -353,8 +302,8 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
 
         {/* Camera toggle */}
         <button
-          onClick={toggleCam}
-          disabled={camLoading || !connected}
+          onClick={() => toggleCam()}
+          disabled={camPending}
           className={cn(
             'flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors shrink-0',
             isCamOn
@@ -366,7 +315,7 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
           {isCamOn ? <Video className="h-3.5 w-3.5" /> : <VideoOff className="h-3.5 w-3.5" />}
         </button>
 
-        {/* Screen share — only if supported */}
+        {/* Screen share */}
         {caps.canScreenShare && (
           <TrackToggle
             source={Track.Source.ScreenShare}
