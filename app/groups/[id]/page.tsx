@@ -106,6 +106,7 @@ export default function GroupChatPage() {
   const [loading,     setLoading]     = useState(true)
   const [joined,      setJoined]      = useState(false)
   const [showMembers, setShowMembers] = useState(false)
+  const [lightbox,    setLightbox]    = useState<string | null>(null)
 
   const scrollRef     = useRef<HTMLDivElement>(null)
   const fileInputRef  = useRef<HTMLInputElement>(null)
@@ -429,13 +430,12 @@ export default function GroupChatPage() {
                             !msg.content && msg.imageUrl && 'p-1 bg-transparent'
                           )}>
                             {msg.imageUrl && (
-                              <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer">
-                                <img
-                                  src={msg.imageUrl}
-                                  alt="imagen"
-                                  className="rounded-xl max-w-full max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                />
-                              </a>
+                              <img
+                                src={msg.imageUrl}
+                                alt="imagen"
+                                onClick={() => setLightbox(msg.imageUrl!)}
+                                className="rounded-xl max-w-full max-h-64 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                              />
                             )}
                             {msg.content && <RenderContent text={msg.content} />}
                             {driveLinks.map(link => <DriveEmbed key={link} url={link} />)}
@@ -583,6 +583,27 @@ export default function GroupChatPage() {
           </div>
         )}
       </div>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/40 hover:bg-black/60 rounded-full p-2 transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img
+            src={lightbox}
+            alt="imagen"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
