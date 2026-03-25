@@ -51,6 +51,32 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
   const { toggle: toggleCam, enabled: isCamOn, pending: camPending } =
     useTrackToggle({ source: Track.Source.Camera })
 
+  // Must request mic permission directly inside click handler (user gesture context).
+  // Browsers block getUserMedia if called from an async chain disconnected from the click.
+  const handleMicToggle = useCallback(async () => {
+    if (!isMicOn) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach(t => t.stop()) // release — LiveKit creates its own
+      } catch {
+        return // permission denied — don't toggle
+      }
+    }
+    await toggleMic()
+  }, [isMicOn, toggleMic])
+
+  const handleCamToggle = useCallback(async () => {
+    if (!isCamOn) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        stream.getTracks().forEach(t => t.stop())
+      } catch {
+        return
+      }
+    }
+    await toggleCam()
+  }, [isCamOn, toggleCam])
+
   const toggleFS = useCallback(() => {
     if (!caps.canFullscreen) return
     if (!document.fullscreenElement) containerRef.current?.requestFullscreen?.()
@@ -152,7 +178,7 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <button
-          onClick={() => toggleMic()}
+          onClick={handleMicToggle}
           disabled={micPending}
           className={cn(
             'flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-medium min-w-[60px] transition-colors',
@@ -163,7 +189,7 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
         </button>
 
         <button
-          onClick={() => toggleCam()}
+          onClick={handleCamToggle}
           disabled={camPending}
           className={cn(
             'flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[11px] font-medium min-w-[60px] transition-colors',
@@ -216,6 +242,32 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
     useTrackToggle({ source: Track.Source.Microphone })
   const { toggle: toggleCam, enabled: isCamOn, pending: camPending } =
     useTrackToggle({ source: Track.Source.Camera })
+
+  // Request permission directly in the click handler (user gesture context).
+  // Browsers block getUserMedia when called from async chains not tied to a click.
+  const handleMicToggle = useCallback(async () => {
+    if (!isMicOn) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        stream.getTracks().forEach(t => t.stop())
+      } catch {
+        return
+      }
+    }
+    await toggleMic()
+  }, [isMicOn, toggleMic])
+
+  const handleCamToggle = useCallback(async () => {
+    if (!isCamOn) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+        stream.getTracks().forEach(t => t.stop())
+      } catch {
+        return
+      }
+    }
+    await toggleCam()
+  }, [isCamOn, toggleCam])
 
   // Track participant changes to play join/leave sounds
   const prevSidsRef = useRef<Set<string>>(new Set())
@@ -287,7 +339,7 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
 
         {/* Mic toggle */}
         <button
-          onClick={() => toggleMic()}
+          onClick={handleMicToggle}
           disabled={micPending}
           className={cn(
             'flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors shrink-0',
@@ -302,7 +354,7 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
 
         {/* Camera toggle */}
         <button
-          onClick={() => toggleCam()}
+          onClick={handleCamToggle}
           disabled={camPending}
           className={cn(
             'flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-colors shrink-0',
