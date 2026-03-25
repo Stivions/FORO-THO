@@ -5,13 +5,15 @@ import Link from 'next/link'
 interface RenderContentProps {
   text: string
   className?: string
+  /** Pass true when rendering inside a primary-coloured bubble so @mention links stay visible */
+  inverted?: boolean
 }
 
 /**
  * Renders post/comment text turning @username into clickable profile links.
  * Uses /u/[username] which server-redirects to /profile/[id].
  */
-export function RenderContent({ text, className }: RenderContentProps) {
+export function RenderContent({ text, className, inverted }: RenderContentProps) {
   const parts = text.split(/(@[a-zA-Z0-9_]+)/g)
 
   return (
@@ -23,7 +25,10 @@ export function RenderContent({ text, className }: RenderContentProps) {
             <Link
               key={i}
               href={`/u/${username}`}
-              className="text-primary font-medium hover:underline"
+              className={inverted
+                ? 'text-white/90 font-semibold underline underline-offset-2 hover:text-white'
+                : 'text-primary font-medium hover:underline'
+              }
               onClick={e => e.stopPropagation()}
             >
               {part}
