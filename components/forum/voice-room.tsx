@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Mic, MicOff, PhoneOff, Volume2, Users,
-  Loader2, Monitor, MonitorOff, Maximize2, X,
+  Loader2, Monitor, MonitorOff, Maximize2, X, Video, VideoOff,
 } from 'lucide-react'
 
 /* ─── Mini participant tile in sidebar ─────────────────── */
@@ -135,8 +135,8 @@ function StreamOverlay({ onLeave, onClose }: { onLeave: () => void; onClose: () 
             : 'bg-zinc-700 text-white'
         )}>
           {localParticipant?.isCameraEnabled
-            ? <><Monitor className="h-5 w-5" /><span>Cam ON</span></>
-            : <><Monitor className="h-5 w-5" /><span>Cámara</span></>
+            ? <><Video className="h-5 w-5" /><span>Cam ON</span></>
+            : <><VideoOff className="h-5 w-5" /><span>Cámara</span></>
           }
         </TrackToggle>
 
