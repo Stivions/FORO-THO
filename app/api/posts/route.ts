@@ -21,6 +21,18 @@ export async function GET(req: Request) {
 
     await connectDB()
 
+    // Check session for VIP status
+    const session = await getServerSession(authOptions)
+    const uid = (session?.user as any)?.id ?? null
+    let isVip = false
+    if (uid) {
+      const userDoc = await User.findById(uid, 'vip vipExpiresAt').lean()
+      if (userDoc) {
+        isVip = (userDoc as any).vip === true &&
+          (!((userDoc as any).vipExpiresAt) || new Date((userDoc as any).vipExpiresAt) > new Date())
+      }
+    }
+
     // Only show published posts (or legacy posts without status field)
     const filter: any = { status: { $nin: ['pending', 'rejected'] } }
     if (category) filter.category = category
@@ -59,11 +71,26 @@ export async function GET(req: Request) {
       Post.countDocuments(filter),
     ])
 
+    // Apply VIP locking
+    const processedPosts = posts.map((post: any) => {
+      if (post.vipOnly && !isVip) {
+        return {
+          ...post,
+          content: (post.content ?? '').slice(0, 120) + '...',
+          preview: (post.content ?? '').slice(0, 120),
+          locked: true,
+          mediaUrl: '',
+          mediaType: '',
+        }
+      }
+      return post
+    })
+
     return NextResponse.json({
-      posts,
+      posts: processedPosts,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
     }, {
-      headers: { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' },
+      headers: { 'Cache-Control': 'no-store' },
     })
   } catch (err) {
     console.error(err)
@@ -83,15 +110,17 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   try {
-    const { title, content, category, tags, mediaUrl, mediaType, vtAnalysis } = await req.json()
+    const { title, content, category, tags, mediaUrl, mediaType, vtAnalysis, vipOnly } = await req.json()
     if (!title?.trim() || !content?.trim() || !category) {
       return NextResponse.json({ error: 'Título, contenido y categoría son requeridos' }, { status: 400 })
     }
 
     await connectDB()
-    const uid     = (session.user as any).id
-    const pending = needsModeration(mediaUrl || '', mediaType || '', content.trim(), title.trim())
-    const status  = pending ? 'pending' : 'published'
+    const uid       = (session.user as any).id
+    const userRole  = (session.user as any).role
+    const isAdmin   = userRole === 'admin'
+    const pending   = needsModeration(mediaUrl || '', mediaType || '', content.trim(), title.trim())
+    const status    = pending ? 'pending' : 'published'
 
     const post = await Post.create({
       title:    title.trim(),
@@ -102,11 +131,12 @@ export async function POST(req: Request) {
       mediaType: mediaType || '',
       author: uid,
       status,
+      vipOnly: isAdmin ? (vipOnly === true) : false,
       ...(vtAnalysis ? { vtAnalysis } : {}),
     })
 
     if (!pending) {
-      await User.findByIdAndUpdate(uid, { $inc: { postsCount: 1 } })
+      await User.findByIdAndUpdate(uid, { $inc: { postsCount: 1, points: 10 } })
     }
 
     // Notify all admins about the pending post

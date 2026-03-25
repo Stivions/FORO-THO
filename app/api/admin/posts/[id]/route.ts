@@ -30,9 +30,9 @@ export async function PATCH(
   const newStatus = action === 'approve' ? 'published' : 'rejected'
   await Post.findByIdAndUpdate(id, { $set: { status: newStatus } })
 
-  // If approved, update author post count
+  // If approved, update author post count and award points
   if (action === 'approve') {
-    await User.findByIdAndUpdate(post.author, { $inc: { postsCount: 1 } })
+    await User.findByIdAndUpdate(post.author, { $inc: { postsCount: 1, points: 10 } })
   }
 
   // Notify the author

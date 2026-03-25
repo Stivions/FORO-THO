@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BADGES, ALL_BADGE_IDS, type BadgeId } from '@/lib/badges'
-import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink } from 'lucide-react'
+import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink, Gift, Wallet } from 'lucide-react'
 
 interface AdminUser {
   _id: string
@@ -44,7 +44,7 @@ export default function AdminPage() {
   const [saving,        setSaving]        = useState<string | null>(null)
   const [actioningGroup, setActioningGroup] = useState<string | null>(null)
   const [edits,         setEdits]         = useState<Record<string, { role: string; badges: string[] }>>({})
-  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce' | 'posts'>('groups')
+  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce' | 'posts' | 'giveaway'>('groups')
   const [pendingPosts,  setPendingPosts]  = useState<any[]>([])
   const [postsLoading,  setPostsLoading]  = useState(false)
   const [actioningPost, setActioningPost] = useState<string | null>(null)
@@ -66,6 +66,15 @@ export default function AdminPage() {
   const [announcing,   setAnnouncing]   = useState(false)
   const [announceResult, setAnnounceResult] = useState<{ sent?: number; error?: string } | null>(null)
   const [showPreview, setShowPreview]   = useState(false)
+
+  // Giveaway state
+  const [giveaways,       setGiveaways]       = useState<any[]>([])
+  const [giveawaysLoading, setGiveawaysLoading] = useState(false)
+  const [pendingPayments, setPendingPayments] = useState<any[]>([])
+  const [paymentsLoading, setPaymentsLoading] = useState(false)
+  const [giveawayForm,    setGiveawayForm]    = useState({
+    title: '', description: '', prize: 'vip_1month', prizeDescription: 'Membresía VIP 1 mes', endsAt: '',
+  })
 
   const isAdmin      = (user as any)?.role === 'admin'
   const isSuperAdmin = (user as any)?.email === 'stevensanchezdev@gmail.com' && isAdmin
@@ -177,6 +186,84 @@ export default function AdminPage() {
       else setAnnounceResult({ error: data.error })
     } finally {
       setAnnouncing(false)
+    }
+  }
+
+  const loadGiveaways = async () => {
+    setGiveawaysLoading(true)
+    try {
+      const [gr, pr] = await Promise.all([
+        fetch('/api/admin/giveaway').then(r => r.json()),
+        fetch('/api/admin/payments').then(r => r.json()),
+      ])
+      setGiveaways(gr.giveaways ?? [])
+      setPendingPayments(pr.payments ?? [])
+    } finally {
+      setGiveawaysLoading(false)
+    }
+  }
+
+  const loadPendingPayments = async () => {
+    setPaymentsLoading(true)
+    try {
+      const pr = await fetch('/api/admin/payments').then(r => r.json())
+      setPendingPayments(pr.payments ?? [])
+    } finally {
+      setPaymentsLoading(false)
+    }
+  }
+
+  const handleDrawWinner = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/giveaway/${id}/draw`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        alert(`🎉 Ganador sorteado: @${data.winner.username} (${data.winner.email})`)
+        setGiveaways(prev => prev.map(g => g._id === id ? { ...g, status: 'ended', winner: { username: data.winner.username } } : g))
+      } else {
+        alert('Error: ' + data.error)
+      }
+    } catch {
+      alert('Error al sortear ganador')
+    }
+  }
+
+  const handlePaymentAction = async (paymentId: string, action: 'approve' | 'reject') => {
+    try {
+      const res = await fetch('/api/admin/payments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId, action }),
+      })
+      if (res.ok) {
+        setPendingPayments(prev => prev.filter(p => p._id !== paymentId))
+      } else {
+        const data = await res.json()
+        alert('Error: ' + data.error)
+      }
+    } catch {
+      alert('Error al procesar pago')
+    }
+  }
+
+  const handleCreateGiveaway = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!giveawayForm.title.trim() || !giveawayForm.endsAt) return
+    try {
+      const res = await fetch('/api/admin/giveaway', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(giveawayForm),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setGiveaways(prev => [data.giveaway, ...prev])
+        setGiveawayForm({ title: '', description: '', prize: 'vip_1month', prizeDescription: 'Membresía VIP 1 mes', endsAt: '' })
+      } else {
+        alert('Error: ' + data.error)
+      }
+    } catch {
+      alert('Error al crear sorteo')
     }
   }
 
@@ -305,6 +392,13 @@ export default function AdminPage() {
           >
             <Megaphone className="h-4 w-4" />
             Anuncios
+          </button>
+          <button
+            onClick={() => { setTab('giveaway'); loadGiveaways() }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'giveaway' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Gift className="h-4 w-4" />
+            Sorteos
           </button>
         </div>
 
@@ -784,6 +878,170 @@ export default function AdminPage() {
               <p className="text-xs font-mono text-center" style={{ color: '#00fff530' }}>
                 ⚠ Esto enviará un email desde noreply@stivion.com a cada usuario registrado.
               </p>
+            </div>
+          </div>
+        ) : tab === 'giveaway' ? (
+          <div className="space-y-8">
+            {/* Create Giveaway */}
+            <div className="p-5 rounded" style={{ border: '1px solid #ffaa0030', background: '#ffaa0005' }}>
+              <h2 className="text-sm font-mono font-semibold uppercase tracking-widest mb-4" style={{ color: '#ffaa00' }}>
+                {'// CREAR SORTEO'}
+              </h2>
+              <form onSubmit={handleCreateGiveaway} className="space-y-3">
+                <input
+                  placeholder="Título del sorteo"
+                  value={giveawayForm.title}
+                  onChange={e => setGiveawayForm(p => ({ ...p, title: e.target.value }))}
+                  className="dedsec-input w-full px-3 py-2 text-sm outline-none"
+                />
+                <textarea
+                  placeholder="Descripción (opcional)"
+                  value={giveawayForm.description}
+                  onChange={e => setGiveawayForm(p => ({ ...p, description: e.target.value }))}
+                  rows={2}
+                  className="dedsec-input w-full px-3 py-2 text-sm outline-none resize-none"
+                />
+                <select
+                  value={giveawayForm.prize}
+                  onChange={e => setGiveawayForm(p => ({ ...p, prize: e.target.value }))}
+                  className="dedsec-input w-full px-3 py-2 text-sm outline-none"
+                >
+                  <option value="vip_1month">VIP 1 mes</option>
+                  <option value="custom">Premio personalizado</option>
+                </select>
+                {giveawayForm.prize === 'custom' && (
+                  <input
+                    placeholder="Descripción del premio"
+                    value={giveawayForm.prizeDescription}
+                    onChange={e => setGiveawayForm(p => ({ ...p, prizeDescription: e.target.value }))}
+                    className="dedsec-input w-full px-3 py-2 text-sm outline-none"
+                  />
+                )}
+                <div>
+                  <label className="text-xs font-mono text-muted-foreground mb-1 block">Fecha y hora de fin</label>
+                  <input
+                    type="datetime-local"
+                    value={giveawayForm.endsAt}
+                    onChange={e => setGiveawayForm(p => ({ ...p, endsAt: e.target.value }))}
+                    className="dedsec-input w-full px-3 py-2 text-sm outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={!giveawayForm.title.trim() || !giveawayForm.endsAt}
+                  className="dedsec-btn w-full py-2 text-sm flex items-center justify-center gap-2"
+                >
+                  <Gift className="h-4 w-4" /> Crear Sorteo
+                </button>
+              </form>
+            </div>
+
+            {/* Giveaways list */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-mono font-semibold uppercase tracking-widest" style={{ color: '#ffaa00' }}>
+                  {'// SORTEOS ACTIVOS / PASADOS'}
+                </h2>
+                <button onClick={loadGiveaways} className="text-xs font-mono" style={{ color: '#00fff560' }}>↻ Actualizar</button>
+              </div>
+              {giveawaysLoading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : giveaways.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">No hay sorteos todavía</p>
+              ) : (
+                <div className="space-y-3">
+                  {giveaways.map(g => (
+                    <div key={g._id} className="p-4 rounded" style={{ border: '1px solid #ffaa0020', background: '#ffaa0005' }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="font-semibold text-sm">{g.title}</span>
+                            <span className="text-xs px-2 py-0.5 rounded font-mono" style={{
+                              background: g.status === 'active' ? '#00ff8820' : '#ff003c20',
+                              color: g.status === 'active' ? '#00ff88' : '#ff003c',
+                              border: `1px solid ${g.status === 'active' ? '#00ff8840' : '#ff003c40'}`,
+                            }}>
+                              {g.status === 'active' ? '● ACTIVO' : '■ FINALIZADO'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-1">{g.prizeDescription}</p>
+                          <p className="text-xs font-mono" style={{ color: '#ffaa0060' }}>
+                            {g.participants?.length ?? 0} participantes · Fin: {new Date(g.endsAt).toLocaleString('es-ES')}
+                          </p>
+                          {g.winner && (
+                            <p className="text-xs font-mono mt-1" style={{ color: '#00ff88' }}>
+                              🏆 Ganador: @{g.winner.username ?? 'desconocido'}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2 shrink-0">
+                          {g.status === 'active' && (
+                            <button
+                              onClick={() => handleDrawWinner(g._id)}
+                              className="text-xs px-3 py-1.5 rounded font-mono transition-all"
+                              style={{ background: '#ffaa0020', border: '1px solid #ffaa0050', color: '#ffaa00', cursor: 'pointer' }}
+                            >
+                              🎲 Sortear
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Pending Crypto Payments */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-mono font-semibold uppercase tracking-widest flex items-center gap-2" style={{ color: '#00fff5' }}>
+                  <Wallet className="h-4 w-4" />{'// PAGOS CRIPTO PENDIENTES'}
+                </h2>
+                <button onClick={loadPendingPayments} className="text-xs font-mono" style={{ color: '#00fff560' }}>↻ Actualizar</button>
+              </div>
+              {paymentsLoading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : pendingPayments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">No hay pagos cripto pendientes</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingPayments.map(p => (
+                    <div key={p._id} className="p-4 rounded" style={{ border: '1px solid #00fff520', background: '#00fff505' }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">@{p.user?.username} <span className="text-xs text-muted-foreground">{p.user?.email}</span></p>
+                          <p className="text-xs font-mono mt-1" style={{ color: '#00fff5' }}>
+                            {p.cryptoCurrency || p.method?.toUpperCase()} · {p.amount} USD
+                          </p>
+                          <p className="text-xs font-mono mt-0.5 truncate" style={{ color: '#00fff560' }} title={p.cryptoTxHash}>
+                            TX: {p.cryptoTxHash?.slice(0, 40)}{p.cryptoTxHash?.length > 40 ? '...' : ''}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {new Date(p.createdAt).toLocaleString('es-ES')}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2 shrink-0">
+                          <button
+                            onClick={() => handlePaymentAction(p._id, 'approve')}
+                            className="text-xs px-3 py-1.5 rounded font-mono"
+                            style={{ background: '#00ff8820', border: '1px solid #00ff8850', color: '#00ff88', cursor: 'pointer' }}
+                          >
+                            ✓ Aprobar VIP
+                          </button>
+                          <button
+                            onClick={() => handlePaymentAction(p._id, 'reject')}
+                            className="text-xs px-3 py-1.5 rounded font-mono"
+                            style={{ background: '#ff003c10', border: '1px solid #ff003c40', color: '#ff003c', cursor: 'pointer' }}
+                          >
+                            ✕ Rechazar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ) : null}

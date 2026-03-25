@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Trash2,
   Shield,
+  Crown,
 } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useCategories, notifyCategories } from '@/hooks/use-categories'
@@ -32,6 +33,7 @@ const navItems = [
   { icon: TrendingUp, label: 'POPULAR', href: '/popular' },
   { icon: Clock,      label: 'LATEST',  href: '/latest' },
   { icon: Users,      label: 'GRUPOS',  href: '/groups' },
+  { icon: Crown,      label: 'VIP',     href: '/vip' },
 ]
 
 export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {

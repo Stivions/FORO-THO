@@ -27,6 +27,9 @@ export interface IUser {
   bannedReason?: string
   bannedAt?: Date
   lastKnownIp?: string
+  vip: boolean
+  vipExpiresAt?: Date | null
+  points: number
   createdAt: Date
 }
 
@@ -57,6 +60,9 @@ const UserSchema = new Schema<IUser>(
     bannedReason:   { type: String, default: '' },
     bannedAt:       { type: Date, default: null },
     lastKnownIp:    { type: String, default: '' },
+    vip:            { type: Boolean, default: false },
+    vipExpiresAt:   { type: Date, default: null },
+    points:         { type: Number, default: 0 },
   },
   { timestamps: true }
 )

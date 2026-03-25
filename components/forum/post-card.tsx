@@ -8,7 +8,7 @@ import { useSession } from 'next-auth/react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   ArrowUp, ArrowDown, MessageCircle, Share2,
-  MoreHorizontal, Flag, Pin, Trash2, Heart, FileText, Download,
+  MoreHorizontal, Flag, Pin, Trash2, Heart, FileText, Download, Crown,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent,
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { PostData } from './post-feed'
 import { UserBadges } from './user-badges'
+import { VipLock } from './vip-lock'
 
 interface PostCardProps {
   post: PostData
@@ -196,6 +197,21 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
                   {verdictStyle.label}
                 </span>
               )}
+              {(post as any).vipOnly && (
+                <span
+                  className="text-xs font-mono px-2 py-0.5 flex items-center gap-1"
+                  style={{
+                    color: '#ffaa00',
+                    border: '1px solid #ffaa0040',
+                    borderRadius: '2px',
+                    letterSpacing: '0.08em',
+                    fontSize: '10px',
+                    background: '#ffaa0010',
+                  }}
+                >
+                  <Crown style={{ width: 9, height: 9 }} />VIP
+                </span>
+              )}
               <span
                 className="ml-auto text-xs font-mono px-2 py-0.5"
                 style={{
@@ -229,10 +245,18 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
               </h3>
             </Link>
 
-            <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--muted-foreground)' }}>{post.content}</p>
+            {(post as any).locked === true ? (
+              <div className="mb-3">
+                <VipLock title={post.title} preview={(post as any).preview} />
+              </div>
+            ) : (
+              <>
+                <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--muted-foreground)' }}>{post.content}</p>
+              </>
+            )}
 
-            {/* Media */}
-            {post.mediaUrl && post.mediaType === 'image' && (
+            {/* Media — only when not locked */}
+            {!(post as any).locked && post.mediaUrl && post.mediaType === 'image' && (
               <button
                 onClick={() => onImageClick?.(post.mediaUrl!)}
                 className="relative w-full aspect-video rounded overflow-hidden mb-3 block"
@@ -241,7 +265,7 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
                 <Image src={post.mediaUrl} alt="media" fill className="object-cover hover:scale-105 transition-transform duration-300" />
               </button>
             )}
-            {post.mediaUrl && post.mediaType === 'video' && (
+            {!(post as any).locked && post.mediaUrl && post.mediaType === 'video' && (
               <div
                 className="relative w-full aspect-video rounded overflow-hidden mb-3"
                 style={{ border: '1px solid #00fff520' }}
@@ -253,7 +277,7 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
                 )}
               </div>
             )}
-            {post.mediaUrl && post.mediaType === 'file' && (
+            {!(post as any).locked && post.mediaUrl && post.mediaType === 'file' && (
               <a
                 href={post.mediaUrl}
                 target="_blank"

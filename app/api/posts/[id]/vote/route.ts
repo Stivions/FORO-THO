@@ -4,6 +4,7 @@ import mongoose from 'mongoose'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Post } from '@/models/Post'
+import { User } from '@/models/User'
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions)
@@ -29,6 +30,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     } else {
       post.upvoters.push(uid)
       post.downvoters = post.downvoters.filter((u: any) => u.toString() !== uid)
+      // Award points to post author for receiving an upvote
+      if (post.author.toString() !== uid) {
+        User.findByIdAndUpdate(post.author, { $inc: { points: 5 } }).catch(() => {})
+      }
     }
   } else {
     if (inDown) {

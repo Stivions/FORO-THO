@@ -8,8 +8,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { FileText, X, Upload, Loader2, Link2, Download } from 'lucide-react'
+import { FileText, X, Upload, Loader2, Link2, Download, Crown } from 'lucide-react'
 import { useCategories } from '@/hooks/use-categories'
+import { useSession } from 'next-auth/react'
 
 interface CreatePostModalProps {
   isOpen: boolean
@@ -27,6 +28,8 @@ type MediaMode = 'none' | 'image' | 'file' | 'drive'
 
 export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostModalProps) {
   const { categories } = useCategories()
+  const { data: session } = useSession()
+  const isAdmin = (session?.user as any)?.role === 'admin'
   const [title,        setTitle]        = useState('')
   const [content,      setContent]      = useState('')
   const [category,     setCategory]     = useState('')
@@ -41,6 +44,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [isUploading,  setIsUploading]  = useState(false)
   const [error,        setError]        = useState('')
   const [vtResult,     setVtResult]     = useState<any>(null)
+  const [vipOnly,      setVipOnly]      = useState(false)
 
   const driveEmbed = mediaMode === 'drive' ? toDriveEmbed(driveLink) : null
   const driveValid  = driveEmbed !== null
@@ -81,7 +85,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
 
   const resetForm = () => {
     setTitle(''); setContent(''); setCategory('')
-    setTags([]); setTagInput(''); setError(''); removeMedia()
+    setTags([]); setTagInput(''); setError(''); removeMedia(); setVipOnly(false)
   }
 
   const handleSubmit = async () => {
@@ -114,7 +118,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
       const res = await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), content: content.trim(), category, tags, mediaUrl, mediaType, vtAnalysis: vtResult }),
+        body: JSON.stringify({ title: title.trim(), content: content.trim(), category, tags, mediaUrl, mediaType, vtAnalysis: vtResult, vipOnly }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error); return }
@@ -271,6 +275,30 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
             )}
             <p className="text-xs text-muted-foreground mt-1">{tags.length}/5 tags</p>
           </div>
+
+          {/* VIP Only toggle (admin only) */}
+          {isAdmin && (
+            <div
+              className="flex items-center gap-3 p-3 rounded cursor-pointer select-none"
+              style={{ border: `1px solid ${vipOnly ? '#ffaa0060' : '#ffaa0020'}`, background: vipOnly ? '#ffaa0010' : 'transparent', transition: 'all 0.2s' }}
+              onClick={() => setVipOnly(v => !v)}
+            >
+              <Crown style={{ width: 16, height: 16, color: '#ffaa00', flexShrink: 0 }} />
+              <div className="flex-1">
+                <p className="text-xs font-mono font-semibold" style={{ color: '#ffaa00' }}>Contenido VIP</p>
+                <p className="text-xs font-mono" style={{ color: '#ffaa0060' }}>Solo miembros VIP podrán ver el contenido completo</p>
+              </div>
+              <div style={{
+                width: 36, height: 20, borderRadius: 10, background: vipOnly ? '#ffaa00' : '#ffaa0030',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+              }}>
+                <div style={{
+                  width: 14, height: 14, borderRadius: '50%', background: '#fff',
+                  position: 'absolute', top: 3, left: vipOnly ? 18 : 3, transition: 'left 0.2s',
+                }} />
+              </div>
+            </div>
+          )}
 
           {/* Moderation warning */}
           {(mediaMode !== 'none' || /https?:\/\//i.test(content) || /https?:\/\//i.test(title)) && (

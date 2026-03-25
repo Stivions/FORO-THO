@@ -5,7 +5,7 @@ import { playSound } from '@/lib/sounds'
 
 export interface AppNotification {
   _id: string
-  type: 'dm' | 'post_like' | 'comment' | 'follow' | 'mention' | 'group_request' | 'group_update'
+  type: 'dm' | 'post_like' | 'comment' | 'follow' | 'mention' | 'group_request' | 'group_update' | 'post_pending' | 'post_approved' | 'post_rejected'
   from?: { _id: string; username: string; displayName?: string; avatar?: string }
   post?: { _id: string; title?: string }
   text: string

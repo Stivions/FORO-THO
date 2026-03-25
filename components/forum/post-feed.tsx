@@ -13,7 +13,7 @@ export interface PostData {
   title: string
   content: string
   mediaUrl?: string
-  mediaType?: 'image' | 'video'
+  mediaType?: 'image' | 'video' | 'file' | ''
   author: { _id: string; username: string; avatar?: string; displayName?: string; badges?: string[] }
   category: string
   tags: string[]

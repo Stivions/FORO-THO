@@ -17,6 +17,7 @@ export interface IPost {
   likers: string[]
   commentsCount: number
   isPinned: boolean
+  vipOnly: boolean
   status: PostStatus
   aiAnalysis?: {
     verdict: AIVerdict
@@ -51,6 +52,7 @@ const PostSchema = new Schema<IPost>(
     likers:       [{ type: Schema.Types.ObjectId, ref: 'User' }],
     commentsCount: { type: Number, default: 0 },
     isPinned:      { type: Boolean, default: false },
+    vipOnly:       { type: Boolean, default: false },
     status:        { type: String, enum: ['published', 'pending', 'rejected'], default: 'published' },
     aiAnalysis: {
       verdict:    { type: String, enum: ['good', 'bad', 'suspicious'] },

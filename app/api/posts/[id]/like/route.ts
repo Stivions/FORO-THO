@@ -4,6 +4,7 @@ import mongoose from 'mongoose'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Post } from '@/models/Post'
+import { User } from '@/models/User'
 import { Notification } from '@/models/Notification'
 
 type Ctx = { params: Promise<{ id: string }> }
@@ -27,6 +28,10 @@ export async function POST(_req: Request, { params }: Ctx) {
     post.likers = post.likers.filter((l: any) => l.toString() !== uid)
   } else {
     post.likers.push(uid)
+    // Award points to post author for receiving a like
+    if (post.author.toString() !== uid) {
+      User.findByIdAndUpdate(post.author, { $inc: { points: 2 } }).catch(() => {})
+    }
     // Notify post author — only one notification per user/post (no spam)
     if (post.author.toString() !== uid) {
       const alreadyNotified = await Notification.exists({
