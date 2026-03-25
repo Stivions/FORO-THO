@@ -178,7 +178,7 @@ function RoomInner({ onLeave }: { onLeave: () => void }) {
       <RoomAudioRenderer />
 
       {/* Stream overlay */}
-      {showStream && <StreamOverlay onLeave={handleLeave} onClose={() => setShowStream(false)} />}
+      {showStream && <StreamOverlay onLeave={onLeave} onClose={() => setShowStream(false)} />}
 
       {/* Live indicator */}
       {hasStream && !showStream && (
