@@ -5,10 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { useSession } from 'next-auth/react'
-import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import {
   ArrowUp, ArrowDown, MessageCircle, Share2,
   MoreHorizontal, Flag, Pin, Trash2, Heart, FileText, Download,
@@ -28,9 +25,9 @@ interface PostCardProps {
 
 function timeAgo(date: string) {
   const d = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
-  if (d < 60)   return `${d}s`
-  if (d < 3600) return `${Math.floor(d/60)}m`
-  if (d < 86400)return `${Math.floor(d/3600)}h`
+  if (d < 60)    return `${d}s`
+  if (d < 3600)  return `${Math.floor(d/60)}m`
+  if (d < 86400) return `${Math.floor(d/3600)}h`
   return `${Math.floor(d/86400)}d`
 }
 
@@ -43,8 +40,8 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
   const [userVote,  setUserVote]  = useState<'up'|'down'|null>(
     post.upvoters.includes(uid) ? 'up' : post.downvoters.includes(uid) ? 'down' : null
   )
-  const [liked,      setLiked]      = useState((post as any).likers?.includes(uid) ?? false)
-  const [likeCount,  setLikeCount]  = useState((post as any).likers?.length ?? 0)
+  const [liked,     setLiked]     = useState((post as any).likers?.includes(uid) ?? false)
+  const [likeCount, setLikeCount] = useState((post as any).likers?.length ?? 0)
 
   const vote = async (dir: 'up' | 'down') => {
     if (!uid) return
@@ -89,143 +86,265 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
   const displayName = post.author.displayName || post.author.username
 
   return (
-    <Card className="bg-card border-border hover:border-primary/30 transition-colors">
-      <CardContent className="p-4">
-        <div className="flex gap-4">
-          {/* Votos */}
-          <div className="flex flex-col items-center gap-1">
-            <Button
-              variant="ghost" size="icon"
-              className={cn('h-8 w-8 rounded-full', userVote === 'up' && 'text-primary bg-primary/10')}
+    <div
+      className="ds-card relative"
+      style={{
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+        borderLeft: '2px solid transparent',
+        borderRadius: '4px',
+        transition: 'border-color 0.2s, box-shadow 0.2s',
+      }}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLElement
+        el.style.borderLeftColor = '#00fff5'
+        el.style.boxShadow = '-3px 0 20px #00fff510, 0 0 30px #00fff506'
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLElement
+        el.style.borderLeftColor = 'transparent'
+        el.style.boxShadow = 'none'
+      }}
+    >
+      <div className="p-4">
+        <div className="flex gap-3">
+          {/* Votes */}
+          <div className="flex flex-col items-center gap-0.5 min-w-[32px]">
+            <button
+              className="flex items-center justify-center h-7 w-7 rounded transition-all"
+              style={{
+                color: userVote === 'up' ? '#00fff5' : '#00fff550',
+                textShadow: userVote === 'up' ? '0 0 8px #00fff5' : 'none',
+                background: userVote === 'up' ? '#00fff510' : 'transparent',
+              }}
               onClick={() => vote('up')}
+              onMouseEnter={e => {
+                if (userVote !== 'up') (e.currentTarget as HTMLElement).style.color = '#00fff5'
+              }}
+              onMouseLeave={e => {
+                if (userVote !== 'up') (e.currentTarget as HTMLElement).style.color = '#00fff550'
+              }}
             >
-              <ArrowUp className="h-5 w-5" />
-            </Button>
-            <span className={cn('text-sm font-bold tabular-nums',
-              userVote === 'up' && 'text-primary',
-              userVote === 'down' && 'text-destructive'
-            )}>
+              <ArrowUp className="h-4 w-4" />
+            </button>
+            <span
+              className="text-xs font-bold font-mono tabular-nums"
+              style={{
+                color: userVote === 'up' ? '#00fff5' : userVote === 'down' ? '#ff003c' : 'var(--muted-foreground)',
+                textShadow: userVote === 'up' ? '0 0 6px #00fff580' : userVote === 'down' ? '0 0 6px #ff003c80' : 'none',
+              }}
+            >
               {score}
             </span>
-            <Button
-              variant="ghost" size="icon"
-              className={cn('h-8 w-8 rounded-full', userVote === 'down' && 'text-destructive bg-destructive/10')}
+            <button
+              className="flex items-center justify-center h-7 w-7 rounded transition-all"
+              style={{
+                color: userVote === 'down' ? '#ff003c' : '#00fff540',
+                textShadow: userVote === 'down' ? '0 0 8px #ff003c' : 'none',
+                background: userVote === 'down' ? '#ff003c10' : 'transparent',
+              }}
               onClick={() => vote('down')}
+              onMouseEnter={e => {
+                if (userVote !== 'down') (e.currentTarget as HTMLElement).style.color = '#ff003c'
+              }}
+              onMouseLeave={e => {
+                if (userVote !== 'down') (e.currentTarget as HTMLElement).style.color = '#00fff540'
+              }}
             >
-              <ArrowDown className="h-5 w-5" />
-            </Button>
+              <ArrowDown className="h-4 w-4" />
+            </button>
           </div>
 
-          {/* Contenido */}
+          {/* Content */}
           <div className="flex-1 min-w-0">
+            {/* Author row */}
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Link href={`/profile/${post.author._id}`}>
-                <Avatar className="h-6 w-6">
+                <Avatar className="h-5 w-5">
                   <AvatarImage src={post.author.avatar} />
-                  <AvatarFallback className="text-xs">
+                  <AvatarFallback style={{ background: '#00fff510', color: '#00fff5', fontSize: '9px', fontFamily: 'monospace' }}>
                     {post.author.username.slice(0,2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </Link>
-              <Link href={`/profile/${post.author._id}`}
-                className="text-sm font-medium hover:text-primary transition-colors">
+              <Link
+                href={`/profile/${post.author._id}`}
+                className="text-xs font-mono font-medium transition-colors"
+                style={{ color: '#00fff5' }}
+                onMouseEnter={e => (e.currentTarget.style.textShadow = '0 0 8px #00fff5')}
+                onMouseLeave={e => (e.currentTarget.style.textShadow = 'none')}
+              >
                 {displayName}
               </Link>
               <UserBadges badges={post.author.badges} size="sm" />
-              <span className="text-muted-foreground text-xs">·</span>
-              <span className="text-xs text-muted-foreground">{timeAgo(post.createdAt)}</span>
-              {post.isPinned && <Pin className="h-3 w-3 text-primary" />}
-              <Badge variant="secondary" className="ml-auto text-xs">{post.category}</Badge>
+              <span style={{ color: '#00fff520' }}>·</span>
+              <span className="text-xs font-mono" style={{ color: 'var(--muted-foreground)' }}>{timeAgo(post.createdAt)}</span>
+              {post.isPinned && <Pin className="h-3 w-3" style={{ color: '#00fff5' }} />}
+              <span
+                className="ml-auto text-xs font-mono px-2 py-0.5"
+                style={{
+                  color: '#00fff5',
+                  border: '1px solid #00fff530',
+                  borderRadius: '2px',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  fontSize: '10px',
+                }}
+              >
+                {post.category}
+              </span>
             </div>
 
+            {/* Title */}
             <Link href={`/post/${post._id}`}>
-              <h3 className="text-lg font-semibold hover:text-primary transition-colors mb-2 line-clamp-2">
+              <h3
+                className="text-base font-semibold mb-1.5 line-clamp-2 transition-colors"
+                style={{ color: 'var(--foreground)', letterSpacing: '0.01em' }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.color = '#00fff5'
+                  ;(e.currentTarget as HTMLElement).style.textShadow = '0 0 12px #00fff530'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.color = 'var(--foreground)'
+                  ;(e.currentTarget as HTMLElement).style.textShadow = 'none'
+                }}
+              >
                 {post.title}
               </h3>
             </Link>
 
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{post.content}</p>
+            <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--muted-foreground)' }}>{post.content}</p>
 
+            {/* Media */}
             {post.mediaUrl && post.mediaType === 'image' && (
               <button
                 onClick={() => onImageClick?.(post.mediaUrl!)}
-                className="relative w-full aspect-video rounded-lg overflow-hidden mb-3 bg-secondary block"
+                className="relative w-full aspect-video rounded overflow-hidden mb-3 block"
+                style={{ border: '1px solid #00fff520' }}
               >
                 <Image src={post.mediaUrl} alt="media" fill className="object-cover hover:scale-105 transition-transform duration-300" />
               </button>
             )}
             {post.mediaUrl && post.mediaType === 'video' && (
-              <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-3 bg-secondary">
+              <div
+                className="relative w-full aspect-video rounded overflow-hidden mb-3"
+                style={{ border: '1px solid #00fff520' }}
+              >
                 {post.mediaUrl.includes('drive.google.com') ? (
-                  <iframe
-                    src={post.mediaUrl}
-                    className="w-full h-full"
-                    allow="autoplay"
-                    allowFullScreen
-                  />
+                  <iframe src={post.mediaUrl} className="w-full h-full" allow="autoplay" allowFullScreen />
                 ) : (
                   <video src={post.mediaUrl} controls className="w-full h-full object-cover" />
                 )}
               </div>
             )}
-
             {post.mediaUrl && post.mediaType === 'file' && (
               <a
                 href={post.mediaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary hover:border-primary/50 transition-colors mb-3 group"
+                className="flex items-center gap-3 p-3 rounded mb-3 group transition-all"
+                style={{ border: '1px solid #00fff520', background: '#00fff508' }}
                 onClick={e => e.stopPropagation()}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = '#00fff560')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = '#00fff520')}
               >
-                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <FileText className="h-5 w-5 text-primary" />
+                <div className="h-8 w-8 rounded flex items-center justify-center shrink-0" style={{ background: '#00fff515', border: '1px solid #00fff530' }}>
+                  <FileText className="h-4 w-4" style={{ color: '#00fff5' }} />
                 </div>
-                <span className="text-sm font-medium flex-1 truncate">Archivo adjunto</span>
-                <Download className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                <span className="text-xs font-mono flex-1 truncate" style={{ color: '#00fff5' }}>Archivo adjunto</span>
+                <Download className="h-3.5 w-3.5 shrink-0 transition-colors" style={{ color: '#00fff560' }} />
               </a>
             )}
 
+            {/* Tags */}
             {post.tags.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div className="flex flex-wrap gap-1.5 mb-3">
                 {post.tags.map(tag => (
-                  <span key={tag} className="text-xs text-primary">#{tag}</span>
+                  <span key={tag} className="ds-tag">#{tag}</span>
                 ))}
               </div>
             )}
 
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" asChild>
-                <Link href={`/post/${post._id}`}>
-                  <MessageCircle className="h-4 w-4" />{post.commentsCount}
-                </Link>
-              </Button>
-              <Button
-                variant="ghost" size="sm"
-                className={cn('gap-1.5', liked ? 'text-rose-500' : 'text-muted-foreground')}
-                onClick={handleLike}
+            {/* Actions */}
+            <div className="flex items-center gap-0.5">
+              <Link
+                href={`/post/${post._id}`}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-all"
+                style={{ color: 'var(--muted-foreground)' }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.color = '#00fff5'
+                  ;(e.currentTarget as HTMLElement).style.background = '#00fff508'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.color = 'var(--muted-foreground)'
+                  ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                }}
               >
-                <Heart className={cn('h-4 w-4', liked && 'fill-current')} />
-                {likeCount > 0 && <span className="text-xs">{likeCount}</span>}
-              </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5" onClick={handleShare}>
-                <Share2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Compartir</span>
-              </Button>
+                <MessageCircle className="h-3.5 w-3.5" />
+                {post.commentsCount}
+              </Link>
+
+              <button
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-all"
+                style={{
+                  color: liked ? '#ff4d7d' : 'var(--muted-foreground)',
+                  textShadow: liked ? '0 0 6px #ff4d7d80' : 'none',
+                }}
+                onClick={handleLike}
+                onMouseEnter={e => {
+                  if (!liked) (e.currentTarget as HTMLElement).style.color = '#ff4d7d'
+                }}
+                onMouseLeave={e => {
+                  if (!liked) (e.currentTarget as HTMLElement).style.color = 'var(--muted-foreground)'
+                }}
+              >
+                <Heart className={cn('h-3.5 w-3.5', liked && 'fill-current')} />
+                {likeCount > 0 && likeCount}
+              </button>
+
+              <button
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-mono transition-all"
+                style={{ color: 'var(--muted-foreground)' }}
+                onClick={handleShare}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.color = '#00fff5'
+                  ;(e.currentTarget as HTMLElement).style.background = '#00fff508'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.color = 'var(--muted-foreground)'
+                  ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                }}
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">SHARE</span>
+              </button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground ml-auto">
+                  <button
+                    className="ml-auto flex items-center px-2 py-1.5 rounded transition-all"
+                    style={{ color: 'var(--muted-foreground)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#00fff5')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted-foreground)')}
+                  >
                     <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {isOwner && (
-                    <DropdownMenuItem className="text-destructive cursor-pointer" onClick={handleDelete}>
-                      <Trash2 className="mr-2 h-4 w-4" />Eliminar
+                <DropdownMenuContent
+                  align="end"
+                  style={{ background: '#0a0a14', border: '1px solid #00fff520', minWidth: '140px' }}
+                >
+                  {isOwner ? (
+                    <DropdownMenuItem
+                      className="cursor-pointer text-xs font-mono"
+                      style={{ color: '#ff003c' }}
+                      onClick={handleDelete}
+                    >
+                      <Trash2 className="mr-2 h-3.5 w-3.5" />ELIMINAR
                     </DropdownMenuItem>
-                  )}
-                  {!isOwner && (
-                    <DropdownMenuItem className="text-destructive cursor-pointer">
-                      <Flag className="mr-2 h-4 w-4" />Reportar
+                  ) : (
+                    <DropdownMenuItem className="cursor-pointer text-xs font-mono" style={{ color: '#ff9500' }}>
+                      <Flag className="mr-2 h-3.5 w-3.5" />REPORTAR
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -233,7 +352,7 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

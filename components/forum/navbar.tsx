@@ -5,9 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { useCurrentUser } from '@/hooks/use-current-user'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -16,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Search, Bell, Menu, X, MessageSquare, User, Settings, LogOut, Mail } from 'lucide-react'
+import { Search, Bell, Menu, X, User, Settings, LogOut, Mail } from 'lucide-react'
 import { NotificationDropdown } from './notification-dropdown'
 
 interface NavbarProps {
@@ -38,7 +36,6 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
   }
 
   const sessionUser = session?.user as any
-  // Fusiona datos de sesión con datos frescos de DB (avatar, displayName)
   const user = sessionId ? {
     id:    sessionId,
     name:  dbUser?.displayName || dbUser?.username || sessionUser?.name,
@@ -47,93 +44,148 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
   } : null
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header
+      className="sticky top-0 z-50 w-full"
+      style={{
+        background: '#050810ee',
+        borderBottom: '1px solid #00fff520',
+        backdropFilter: 'blur(12px)',
+        boxShadow: '0 1px 30px #00fff508',
+      }}
+    >
       <div className="flex h-14 items-center gap-4 px-4">
         {/* Mobile Toggle */}
-        <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuToggle}>
-          {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <button
+          className="lg:hidden p-1.5 rounded transition-colors"
+          style={{ color: '#00fff580', border: '1px solid #00fff520' }}
+          onClick={onMenuToggle}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.color = '#00fff5'
+            ;(e.currentTarget as HTMLElement).style.borderColor = '#00fff550'
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.color = '#00fff580'
+            ;(e.currentTarget as HTMLElement).style.borderColor = '#00fff520'
+          }}
+        >
+          {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        </button>
 
-        {/* Logo */}
+        {/* Mobile Logo */}
         <Link href="/" className="flex items-center gap-2 lg:hidden">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polyline points="2,7 2,2 7,2" stroke="#00fff5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="25,2 30,2 30,7" stroke="#00fff5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="2,25 2,30 7,30" stroke="#00fff5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <polyline points="25,30 30,30 30,25" stroke="#00fff5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <polygon points="16,7 25,16 16,25 7,16" stroke="#00fff5" strokeWidth="1.4" fill="none" opacity="0.8"/>
+            <circle cx="16" cy="16" r="4.5" stroke="#00fff5" strokeWidth="1.2" fill="#00fff510"/>
+            <circle cx="16" cy="16" r="1.8" fill="#00fff5"/>
+          </svg>
+          <span className="ds-logo-text text-xs">SAS</span>
         </Link>
 
         {/* Search */}
         <form onSubmit={handleSearch} className="flex-1 max-w-xl mx-auto">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
+              style={{ color: '#00fff550' }}
+            />
+            <input
               type="search"
-              placeholder="Buscar posts, usuarios, tags..."
+              placeholder="> buscar posts, usuarios, tags..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 bg-secondary border-border focus:border-primary"
+              className="ds-search-input w-full pl-9 pr-4 py-2 rounded text-xs"
+              style={{ fontFamily: 'monospace' }}
             />
           </div>
         </form>
 
         {/* Right */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <NotificationDropdown />
 
-          {/* While session is loading, show an invisible placeholder to prevent layout shift */}
           {status === 'loading' ? (
-            <div className="h-9 w-9 rounded-full bg-muted/50 animate-pulse" />
+            <div className="h-8 w-8 rounded-full animate-pulse" style={{ background: '#00fff510' }} />
           ) : user ? (
             <>
-              <Button variant="ghost" size="icon" asChild className="relative">
-                <Link href="/messages" title="Mensajes directos">
-                  <Mail className="h-5 w-5" />
-                </Link>
-              </Button>
+              <Link
+                href="/messages"
+                title="Mensajes directos"
+                className="p-1.5 rounded transition-colors"
+                style={{ color: '#00fff560' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#00fff5')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#00fff560')}
+              >
+                <Mail className="h-4 w-4" />
+              </Link>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                    <Avatar className="h-9 w-9">
+                  <button
+                    className="rounded-full p-0.5 transition-all"
+                    style={{ border: '1px solid #00fff530' }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLElement).style.borderColor = '#00fff5'
+                      ;(e.currentTarget as HTMLElement).style.boxShadow = '0 0 10px #00fff540'
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLElement).style.borderColor = '#00fff530'
+                      ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
+                    }}
+                  >
+                    <Avatar className="h-7 w-7">
                       <AvatarImage src={user.image ?? ''} alt={user.name ?? ''} />
-                      <AvatarFallback>{(user.name ?? 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback style={{ background: '#00fff510', color: '#00fff5', fontFamily: 'monospace', fontSize: '10px' }}>
+                        {(user.name ?? 'U').slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
-                  </Button>
+                  </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end">
-                  <div className="flex items-center gap-2 p-2">
-                    <Avatar className="h-8 w-8">
+                <DropdownMenuContent
+                  className="w-52"
+                  align="end"
+                  style={{ background: '#0a0a14', border: '1px solid #00fff530', boxShadow: '0 4px 30px #00fff510' }}
+                >
+                  <div className="flex items-center gap-2 p-2" style={{ borderBottom: '1px solid #00fff510' }}>
+                    <Avatar className="h-7 w-7">
                       <AvatarImage src={user.image ?? ''} />
-                      <AvatarFallback>{(user.name ?? 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
+                      <AvatarFallback style={{ background: '#00fff510', color: '#00fff5', fontFamily: 'monospace', fontSize: '10px' }}>
+                        {(user.name ?? 'U').slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col space-y-0.5">
-                      <p className="text-sm font-medium">{user.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{user.role ?? 'usuario'}</p>
+                    <div className="flex flex-col">
+                      <p className="text-xs font-medium" style={{ color: '#00fff5' }}>{user.name}</p>
+                      <p className="text-xs font-mono capitalize" style={{ color: '#00fff540' }}>{user.role ?? 'agent'}</p>
                     </div>
                   </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href={`/profile/${user.id}`} className="cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />Mi perfil
+                  <DropdownMenuItem asChild className="cursor-pointer text-xs font-mono">
+                    <Link href={`/profile/${user.id}`}>
+                      <User className="mr-2 h-3.5 w-3.5" />MI PERFIL
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />Ajustes
+                  <DropdownMenuItem asChild className="cursor-pointer text-xs font-mono">
+                    <Link href="/settings">
+                      <Settings className="mr-2 h-3.5 w-3.5" />AJUSTES
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator style={{ background: '#00fff510' }} />
                   <DropdownMenuItem
-                    className="text-destructive cursor-pointer"
+                    className="cursor-pointer text-xs font-mono"
+                    style={{ color: '#ff003c' }}
                     onClick={() => signOut({ callbackUrl: '/login' })}
                   >
-                    <LogOut className="mr-2 h-4 w-4" />Cerrar sesión
+                    <LogOut className="mr-2 h-3.5 w-3.5" />CERRAR SESIÓN
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
           ) : (
-            <Button size="sm" asChild>
-              <Link href="/login">Entrar</Link>
-            </Button>
+            <Link href="/login" className="dedsec-btn px-4 py-1.5 text-xs">
+              {'> ENTRAR'}
+            </Link>
           )}
         </div>
       </div>

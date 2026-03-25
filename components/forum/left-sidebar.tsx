@@ -9,7 +9,6 @@ import {
   Home,
   TrendingUp,
   Clock,
-  MessageSquare,
   Users,
   Plus,
   ChevronDown,
@@ -29,10 +28,10 @@ interface LeftSidebarProps {
 }
 
 const navItems = [
-  { icon: Home,       label: 'Home',    href: '/' },
-  { icon: TrendingUp, label: 'Popular', href: '/popular' },
-  { icon: Clock,      label: 'Latest',  href: '/latest' },
-  { icon: Users,      label: 'Grupos',  href: '/groups' },
+  { icon: Home,       label: 'HOME',    href: '/' },
+  { icon: TrendingUp, label: 'POPULAR', href: '/popular' },
+  { icon: Clock,      label: 'LATEST',  href: '/latest' },
+  { icon: Users,      label: 'GRUPOS',  href: '/groups' },
 ]
 
 export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
@@ -48,17 +47,16 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
     e.preventDefault()
     e.stopPropagation()
     if (!confirm('¿Eliminar esta categoría?')) return
-    // Optimistic: remove immediately from UI
     removeCategory(id)
     setDeletingId(id)
     try {
       const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' })
       if (res.ok) {
-        notifyCategories() // sync other instances
+        notifyCategories()
       } else {
         const data = await res.json().catch(() => ({}))
         alert(`Error al borrar: ${data.error ?? res.status}`)
-        notifyCategories() // restore real state
+        notifyCategories()
       }
     } finally {
       setDeletingId(null)
@@ -70,93 +68,110 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
 
   return (
     <>
-      <aside className={cn('flex flex-col h-full', className)}>
+      <aside className={cn('flex flex-col h-full', className)}
+        style={{ background: 'var(--sidebar)', borderRight: '1px solid var(--border)' }}>
+
         {/* Logo */}
-        <div className="p-4 border-b border-border">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">Skill All Show</span>
+        <div className="p-4" style={{ borderBottom: '1px solid var(--border)' }}>
+          <Link href="/" className="flex items-center gap-2.5">
+            {/* DedSec eye icon */}
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="32" height="32" fill="transparent"/>
+              <polyline points="2,7 2,2 7,2" stroke="#00fff5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="25,2 30,2 30,7" stroke="#00fff5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="2,25 2,30 7,30" stroke="#00fff5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="25,30 30,30 30,25" stroke="#00fff5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <polygon points="16,7 25,16 16,25 7,16" stroke="#00fff5" strokeWidth="1.4" fill="none" opacity="0.8"/>
+              <circle cx="16" cy="16" r="4.5" fill="#00fff5" opacity="0.12"/>
+              <circle cx="16" cy="16" r="4.5" stroke="#00fff5" strokeWidth="1.2"/>
+              <circle cx="16" cy="16" r="1.8" fill="#00fff5"/>
+            </svg>
+            <span className="ds-logo-text text-sm">Skill All Show</span>
           </Link>
         </div>
 
         {/* Create Post Button */}
         <div className="p-4">
-          <Button
+          <button
             onClick={onCreatePost}
-            className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="w-full dedsec-btn py-2 text-xs flex items-center justify-center gap-2"
           >
-            <Plus className="w-4 h-4" />
-            Create Post
-          </Button>
+            <Plus className="w-3.5 h-3.5" />
+            NUEVO POST
+          </button>
         </div>
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-2">
-          {/* Main Nav */}
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {navItems.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground"
+                className="ds-nav-item flex items-center gap-3 px-3 py-2 rounded text-xs font-medium text-muted-foreground"
               >
-                <item.icon className="w-5 h-5" />
-                {item.label}
+                <item.icon className="w-4 h-4 shrink-0" style={{ color: '#00fff580' }} />
+                <span className="font-mono tracking-wider">{item.label}</span>
               </Link>
             ))}
           </div>
 
           {/* Categories */}
-          <div className="mt-6">
-            <div className="flex items-center justify-between px-3 py-2">
+          <div className="mt-5">
+            <div className="flex items-center justify-between px-3 py-1.5" style={{ borderBottom: '1px solid #00fff510' }}>
               <button
                 onClick={() => setCategoriesExpanded(!categoriesExpanded)}
-                className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors"
+                className="flex items-center gap-1.5 text-xs font-mono font-semibold uppercase tracking-widest transition-colors"
+                style={{ color: '#00fff560', letterSpacing: '0.15em' }}
               >
                 {categoriesExpanded ? (
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-3 h-3" />
                 ) : (
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-3 h-3" />
                 )}
-                Categories
+                {'// CATEGORIES'}
               </button>
               {sessionId && (
                 <button
                   onClick={() => setShowCreateCategory(true)}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  className="transition-colors"
+                  style={{ color: '#00fff540' }}
                   title="Crear categoría"
+                  onMouseEnter={e => (e.currentTarget.style.color = '#00fff5')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#00fff540')}
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
 
             {categoriesExpanded && (
-              <div className="space-y-1 mt-1">
+              <div className="space-y-0.5 mt-1">
                 {catsLoading ? (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">Cargando...</div>
+                  <div className="px-3 py-2 text-xs font-mono" style={{ color: '#00fff540' }}>{'> loading...'}</div>
                 ) : categories.map((cat) => {
                   const Icon = getIcon(cat.icon)
                   return (
-                    <div key={cat._id} className="rounded-lg overflow-hidden">
+                    <div key={cat._id} className="rounded overflow-hidden">
                       <div className="group flex items-center">
                         <Link
                           href={`/?category=${encodeURIComponent(cat.name)}`}
-                          className="flex flex-1 items-center gap-3 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+                          className="ds-nav-item flex flex-1 items-center gap-2.5 px-3 py-1.5 rounded text-xs text-muted-foreground"
                         >
-                          <Icon className="w-5 h-5 shrink-0" />
-                          <span className="truncate">{cat.name}</span>
+                          <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: '#00fff560' }} />
+                          <span className="font-mono truncate" style={{ letterSpacing: '0.04em' }}>{cat.name}</span>
                         </Link>
                         {(isAdmin || cat.createdBy === sessionId) && (
                           <button
                             onClick={(e) => handleDeleteCategory(cat._id, e)}
                             disabled={deletingId === cat._id}
-                            className="mr-1 p-1 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                            className="mr-1 p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
+                            style={{ color: '#ff003c80' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#ff003c')}
+                            onMouseLeave={e => (e.currentTarget.style.color = '#ff003c80')}
                             title="Eliminar categoría"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         )}
                       </div>
@@ -170,41 +185,53 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
         </nav>
 
         {/* User Profile Section */}
-        <div className="border-t border-border">
+        <div style={{ borderTop: '1px solid var(--border)' }}>
           {isAdmin && (
             <div className="px-4 pt-3">
               <Link
                 href="/admin"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-orange-400 hover:bg-orange-500/10 transition-colors"
+                className="ds-nav-item flex items-center gap-2 px-3 py-1.5 rounded text-xs font-mono font-medium"
+                style={{ color: '#ff9500' }}
               >
-                <Shield className="w-4 h-4" />
-                Panel de Admin
+                <Shield className="w-3.5 h-3.5" />
+                ADMIN PANEL
               </Link>
             </div>
           )}
           <div className="p-4">
-          {sessionId ? (
-            <Link
-              href={`/profile/${sessionId}`}
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors"
-            >
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={user?.avatar ?? ''} alt={displayName} />
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{displayName}</p>
-                <p className="text-xs text-muted-foreground">{user?.role ?? 'usuario'}</p>
-              </div>
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground text-sm"
-            >
-              Iniciar sesión
-            </Link>
-          )}
+            {sessionId ? (
+              <Link
+                href={`/profile/${sessionId}`}
+                className="flex items-center gap-3 p-2 rounded transition-all"
+                style={{ border: '1px solid transparent' }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = '#00fff530'
+                  ;(e.currentTarget as HTMLElement).style.boxShadow = '0 0 12px #00fff510'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.borderColor = 'transparent'
+                  ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
+                }}
+              >
+                <Avatar className="h-9 w-9">
+                  <AvatarImage src={user?.avatar ?? ''} alt={displayName} />
+                  <AvatarFallback style={{ background: '#00fff510', color: '#00fff5', fontFamily: 'monospace', fontSize: '11px' }}>
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: '#00fff5' }}>{displayName}</p>
+                  <p className="text-xs font-mono" style={{ color: '#00fff540' }}>{user?.role ?? 'agent'}</p>
+                </div>
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="dedsec-btn w-full py-2 text-xs flex items-center justify-center"
+              >
+                {'> ACCEDER'}
+              </Link>
+            )}
           </div>
         </div>
       </aside>
