@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BADGES, ALL_BADGE_IDS, type BadgeId } from '@/lib/badges'
-import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2 } from 'lucide-react'
+import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye } from 'lucide-react'
 
 interface AdminUser {
   _id: string
@@ -41,7 +41,19 @@ export default function AdminPage() {
   const [saving,        setSaving]        = useState<string | null>(null)
   const [actioningGroup, setActioningGroup] = useState<string | null>(null)
   const [edits,         setEdits]         = useState<Record<string, { role: string; badges: string[] }>>({})
-  const [tab,           setTab]           = useState<'users' | 'groups'>('groups')
+  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce'>('groups')
+
+  // Announce state
+  const [announce, setAnnounce] = useState({
+    subject:    '',
+    headline:   '',
+    message:    '',
+    ctaText:    '',
+    ctaUrl:     '',
+  })
+  const [announcing,   setAnnouncing]   = useState(false)
+  const [announceResult, setAnnounceResult] = useState<{ sent?: number; error?: string } | null>(null)
+  const [showPreview, setShowPreview]   = useState(false)
 
   const isAdmin      = (user as any)?.role === 'admin'
   const isSuperAdmin = (user as any)?.email === 'stevensanchezdev@gmail.com' && isAdmin
@@ -76,6 +88,28 @@ export default function AdminPage() {
       }
     } finally {
       setActioningGroup(null)
+    }
+  }
+
+  const sendAnnounce = async () => {
+    if (!announce.subject.trim() || !announce.headline.trim() || !announce.message.trim()) return
+    if (!confirm(`¿Enviar este anuncio a TODOS los usuarios registrados?`)) return
+    setAnnouncing(true)
+    setAnnounceResult(null)
+    try {
+      const res = await fetch('/api/admin/announce', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...announce,
+          senderName: (user as any)?.displayName || (user as any)?.username || 'Admin',
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) setAnnounceResult({ sent: data.sent })
+      else setAnnounceResult({ error: data.error })
+    } finally {
+      setAnnouncing(false)
     }
   }
 
@@ -185,6 +219,13 @@ export default function AdminPage() {
           >
             <Shield className="h-4 w-4" />
             Usuarios ({users.length})
+          </button>
+          <button
+            onClick={() => setTab('announce')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'announce' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Megaphone className="h-4 w-4" />
+            Anuncios
           </button>
         </div>
 
@@ -338,7 +379,159 @@ export default function AdminPage() {
               )
             })}
           </div>
-        )}
+        ) : tab === 'announce' ? (
+          <div className="space-y-6">
+            <p className="text-sm text-muted-foreground">
+              Envía un email a todos los usuarios registrados. Configura el template antes de enviar.
+            </p>
+
+            <div className="grid gap-4">
+              {/* Subject */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-mono font-semibold uppercase tracking-widest" style={{ color: '#00fff5' }}>
+                  {'> ASUNTO (subject)'}
+                </label>
+                <input
+                  value={announce.subject}
+                  onChange={e => setAnnounce(p => ({ ...p, subject: e.target.value }))}
+                  placeholder="ej: 🔥 Nuevo torneo en Skill All Show"
+                  className="dedsec-input px-3 py-2 text-sm rounded-none w-full outline-none"
+                />
+              </div>
+
+              {/* Headline */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-mono font-semibold uppercase tracking-widest" style={{ color: '#00fff5' }}>
+                  {'> TITULAR DEL EMAIL (headline)'}
+                </label>
+                <input
+                  value={announce.headline}
+                  onChange={e => setAnnounce(p => ({ ...p, headline: e.target.value }))}
+                  placeholder="ej: ¡NUEVO TORNEO DISPONIBLE!"
+                  className="dedsec-input px-3 py-2 text-sm rounded-none w-full outline-none"
+                />
+                <p className="text-xs text-muted-foreground font-mono">Aparece grande en el banner del email, en MAYÚSCULAS automático.</p>
+              </div>
+
+              {/* Message */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-mono font-semibold uppercase tracking-widest" style={{ color: '#00fff5' }}>
+                  {'> MENSAJE'}
+                </label>
+                <textarea
+                  value={announce.message}
+                  onChange={e => setAnnounce(p => ({ ...p, message: e.target.value }))}
+                  placeholder="Escribe el cuerpo del anuncio aquí... Soporta saltos de línea."
+                  rows={6}
+                  className="dedsec-input px-3 py-2 text-sm rounded-none w-full outline-none resize-y"
+                />
+              </div>
+
+              {/* CTA (opcional) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-mono font-semibold uppercase tracking-widest" style={{ color: '#00fff560' }}>
+                    {'> BOTÓN (opcional)'}
+                  </label>
+                  <input
+                    value={announce.ctaText}
+                    onChange={e => setAnnounce(p => ({ ...p, ctaText: e.target.value }))}
+                    placeholder="ej: VER EN EL FORO"
+                    className="dedsec-input px-3 py-2 text-sm rounded-none w-full outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-mono font-semibold uppercase tracking-widest" style={{ color: '#00fff560' }}>
+                    {'> URL DEL BOTÓN'}
+                  </label>
+                  <input
+                    value={announce.ctaUrl}
+                    onChange={e => setAnnounce(p => ({ ...p, ctaUrl: e.target.value }))}
+                    placeholder="https://forotho.netlify.app"
+                    className="dedsec-input px-3 py-2 text-sm rounded-none w-full outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Preview toggle */}
+              <button
+                onClick={() => setShowPreview(p => !p)}
+                className="flex items-center gap-2 text-xs font-mono transition-colors"
+                style={{ color: showPreview ? '#00fff5' : '#00fff560' }}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                {showPreview ? 'OCULTAR PREVIEW' : 'VER PREVIEW DEL EMAIL'}
+              </button>
+
+              {showPreview && (
+                <div
+                  className="rounded overflow-hidden"
+                  style={{ border: '1px solid #00fff530', background: '#050810', maxHeight: '500px', overflowY: 'auto' }}
+                >
+                  {/* Simplified preview */}
+                  <div style={{ padding: '24px', fontFamily: 'monospace' }}>
+                    <div style={{ textAlign: 'center', borderBottom: '1px solid #00fff520', paddingBottom: '16px', marginBottom: '16px' }}>
+                      <div style={{ color: '#00fff5', fontSize: '18px', fontWeight: 900, letterSpacing: '0.15em', textShadow: '0 0 12px #00fff5' }}>
+                        SKILL ALL SHOW
+                      </div>
+                      <div style={{ color: '#00fff540', fontSize: '10px', marginTop: '4px' }}>SYS::DEDSEC_NET · STATUS: ONLINE</div>
+                    </div>
+                    <div style={{ color: '#00fff540', fontSize: '10px', letterSpacing: '0.2em', marginBottom: '6px' }}>&gt; ANUNCIO_OFICIAL</div>
+                    <div style={{ color: '#00fff5', fontSize: '20px', fontWeight: 900, textTransform: 'uppercase', marginBottom: '16px', textShadow: '0 0 10px #00fff540' }}>
+                      {announce.headline || 'TITULAR DEL ANUNCIO'}
+                    </div>
+                    <div style={{ color: '#c8fff8', fontSize: '14px', lineHeight: 1.8, whiteSpace: 'pre-wrap', marginBottom: '20px' }}>
+                      {announce.message || 'El cuerpo del mensaje aparecerá aquí...'}
+                    </div>
+                    {announce.ctaText && (
+                      <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                        <span style={{ display: 'inline-block', padding: '10px 28px', border: '1px solid #00fff5', color: '#00fff5', fontSize: '11px', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+                          &gt; {announce.ctaText}
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ borderTop: '1px solid #00fff510', paddingTop: '16px', textAlign: 'center' }}>
+                      <div style={{ color: '#00fff540', fontSize: '10px' }}>
+                        Enviado por <strong style={{ color: '#00fff5' }}>{(user as any)?.displayName || (user as any)?.username || 'Admin'}</strong> · Skill All Show
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Result message */}
+              {announceResult && (
+                <div
+                  className="p-3 rounded font-mono text-sm"
+                  style={{
+                    background: announceResult.error ? '#ff003c10' : '#00fff510',
+                    border: `1px solid ${announceResult.error ? '#ff003c40' : '#00fff540'}`,
+                    color: announceResult.error ? '#ff003c' : '#00fff5',
+                  }}
+                >
+                  {announceResult.error
+                    ? `// ERROR: ${announceResult.error.toUpperCase()}`
+                    : `// OK: EMAIL ENVIADO A ${announceResult.sent} USUARIO${(announceResult.sent ?? 0) !== 1 ? 'S' : ''}`}
+                </div>
+              )}
+
+              {/* Send button */}
+              <button
+                onClick={sendAnnounce}
+                disabled={announcing || !announce.subject.trim() || !announce.headline.trim() || !announce.message.trim()}
+                className="dedsec-btn py-3 text-sm flex items-center justify-center gap-2 w-full"
+              >
+                {announcing
+                  ? <><Loader2 className="h-4 w-4 animate-spin" />ENVIANDO...</>
+                  : <><Megaphone className="h-4 w-4" />ENVIAR ANUNCIO A TODOS LOS USUARIOS</>}
+              </button>
+
+              <p className="text-xs font-mono text-center" style={{ color: '#00fff530' }}>
+                ⚠ Esto enviará un email a cada usuario registrado. No tiene límite de envíos por ahora.
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
