@@ -527,6 +527,18 @@ export default function GroupChatPage() {
                   className="bg-muted/60 border-transparent text-sm"
                   minHeight="40px"
                   style={{ maxHeight: '100px' }}
+                  localUsers={[
+                    // Group members
+                    ...(group?.members ?? []).map(m => ({
+                      _id: m._id,
+                      username: m.username,
+                      displayName: m.displayName,
+                      avatar: m.avatar,
+                      badges: m.badges,
+                    })),
+                    // Always include ThoBot
+                    { _id: 'thobot', username: 'thobot', displayName: 'ThoBot', badges: ['bot', 'verified'] },
+                  ]}
                 />
 
                 <Button

@@ -4,6 +4,7 @@ import { User } from '@/models/User'
 import { Comment } from '@/models/Comment'
 import { Post } from '@/models/Post'
 import { Notification } from '@/models/Notification'
+import { GroupMessage } from '@/models/GroupMessage'
 
 export const BOT_USERNAME = 'thobot'
 export const BOT_EMAIL    = 'thobot@forotho.internal'
@@ -111,6 +112,37 @@ Contexto del post donde te mencionaron: "${postContext.slice(0, 400)}"`
     return comment
   } catch (err) {
     console.error('[ThoBot]', err)
+  }
+}
+
+/** Reply as ThoBot inside a group chat */
+export async function triggerBotGroupReply(
+  groupId: string,
+  recentContext: string,
+  question: string,
+) {
+  try {
+    const systemPrompt = `Eres ThoBot, el asistente IA del Foro THO. Reglas estrictas:
+
+1. Responde SIEMPRE en el mismo idioma que el usuario (detecta si es español, inglés, etc.)
+2. Sé CONCISO: máximo 2-3 oraciones por defecto. Solo extiéndete si el usuario pide "explica más", "detalla" o similar.
+3. Separa tus párrafos con una línea en blanco. NUNCA pegues todo el texto junto.
+4. Si listas cosas, pon cada ítem en su propia línea con "- " al inicio.
+5. No uses markdown pesado. Solo texto limpio.
+6. Sé directo: no repitas la pregunta ni des introducciones largas.
+
+Estás en un chat grupal. Contexto reciente: "${recentContext.slice(0, 400)}"`
+
+    const cleanQuestion = question.replace(/@thobot/gi, '').trim() || question
+
+    const [botId, reply] = await Promise.all([
+      getBotUserId(),
+      callGroq(systemPrompt, cleanQuestion),
+    ])
+
+    await GroupMessage.create({ group: groupId, author: botId, content: reply })
+  } catch (err) {
+    console.error('[ThoBot Group]', err)
   }
 }
 

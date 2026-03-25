@@ -19,6 +19,8 @@ interface MentionInputProps {
   className?: string
   style?: React.CSSProperties
   minHeight?: string
+  /** Users to suggest first (e.g. group members) before hitting the search API */
+  localUsers?: MentionUser[]
 }
 
 export function MentionInput({
@@ -29,6 +31,7 @@ export function MentionInput({
   className,
   style,
   minHeight = '80px',
+  localUsers,
 }: MentionInputProps) {
   const [suggestions, setSuggestions]   = useState<MentionUser[]>([])
   const [selectedIdx, setSelectedIdx]   = useState(0)
@@ -60,12 +63,22 @@ export function MentionInput({
       setSelectedIdx(0)
       clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(async () => {
-        if (active.query.length === 0) { setSuggestions([]); return }
+        const q = active.query.toLowerCase()
+        // Match local users (group members + thobot) first
+        const local = (localUsers ?? []).filter(u =>
+          u.username.toLowerCase().includes(q) ||
+          (u.displayName ?? '').toLowerCase().includes(q)
+        )
+        if (active.query.length === 0) { setSuggestions(local.slice(0, 6)); return }
         try {
           const res  = await fetch(`/api/users/search?q=${encodeURIComponent(active.query)}`)
           const data = await res.json()
-          setSuggestions((data.users ?? []).slice(0, 6))
-        } catch { setSuggestions([]) }
+          const remote: MentionUser[] = data.users ?? []
+          // Merge: local first, then remote (deduplicated)
+          const localIds = new Set(local.map(u => u._id))
+          const merged = [...local, ...remote.filter(u => !localIds.has(u._id))]
+          setSuggestions(merged.slice(0, 8))
+        } catch { setSuggestions(local.slice(0, 6)) }
       }, 180)
     } else {
       closeSuggestions()

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { GroupMessage } from '@/models/GroupMessage'
 import { DiscussionGroup } from '@/models/DiscussionGroup'
+import { extractMentions, triggerBotGroupReply, BOT_USERNAME } from '@/lib/thobot'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,14 @@ export async function POST(req: Request, { params }: Ctx) {
     imageUrl: imageUrl ?? null,
   })
   const populated = await msg.populate('author', 'username displayName avatar badges')
+
+  // Trigger ThoBot reply if mentioned
+  if (content?.trim()) {
+    const mentions = extractMentions(content)
+    if (mentions.includes(BOT_USERNAME)) {
+      triggerBotGroupReply(id, content.trim(), content.trim()).catch(() => {})
+    }
+  }
 
   return NextResponse.json({ message: populated }, { status: 201 })
 }
