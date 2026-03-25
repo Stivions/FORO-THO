@@ -314,7 +314,7 @@ export default function GroupChatPage() {
   const canChat = joined && !!sessionId
 
   return (
-    <div className="-mx-4 -my-6 flex flex-col bg-card overflow-hidden" style={{ height: 'calc(100dvh - 3.5rem)' }}>
+    <div className="flex flex-col h-full bg-card overflow-hidden">
       {/* ── Header ── */}
       <div className="flex items-center gap-2 px-3 py-2 bg-card border-b border-border shrink-0">
         <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" asChild>
