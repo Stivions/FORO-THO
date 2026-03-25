@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import {
   LiveKitRoom,
@@ -237,13 +237,31 @@ interface VoiceRoomProps {
 
 export function VoiceRoom({ categoryId, categoryName }: VoiceRoomProps) {
   const { data: session } = useSession()
-  const [expanded,  setExpanded]  = useState(false)
-  const [token,     setToken]     = useState<string | null>(null)
-  const [serverUrl, setServerUrl] = useState<string>('')
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
+  const [expanded,     setExpanded]     = useState(false)
+  const [token,        setToken]        = useState<string | null>(null)
+  const [serverUrl,    setServerUrl]    = useState<string>('')
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+  const [outsideUsers, setOutsideUsers] = useState<{identity:string; name:string}[]>([])
 
   const roomName = `category-${categoryId}`
+
+  // Poll participants even without joining — shows who's connected
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/voice/participants?room=${encodeURIComponent(roomName)}`)
+        if (res.ok) {
+          const data = await res.json()
+          setOutsideUsers(data.participants ?? [])
+        }
+      } catch {}
+    }
+    poll()
+    timer = setInterval(poll, 5000)
+    return () => clearInterval(timer)
+  }, [roomName])
 
   const handleJoin = useCallback(async () => {
     setLoading(true); setError(null)
@@ -268,16 +286,36 @@ export function VoiceRoom({ categoryId, categoryName }: VoiceRoomProps) {
 
   return (
     <div className="border-t border-border/50 mt-1 pt-1">
-      {/* Header toggle */}
+      {/* Header toggle — shows count even when collapsed */}
       <button
         className="flex items-center gap-2 w-full px-2 py-1 rounded hover:bg-secondary/50 transition-colors text-xs text-muted-foreground"
         onClick={() => setExpanded(e => !e)}
       >
         <Volume2 className="h-3 w-3" />
         <span className="flex-1 text-left">Sala de voz</span>
-        {token && <span className="h-1.5 w-1.5 rounded-full bg-green-400" />}
+        {outsideUsers.length > 0 && (
+          <span className="flex items-center gap-1 text-green-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+            {outsideUsers.length}
+          </span>
+        )}
         <Users className="h-3 w-3" />
       </button>
+
+      {/* Always show who's connected even when not joined */}
+      {outsideUsers.length > 0 && !token && (
+        <div className="px-2 pb-1 flex flex-col gap-0.5">
+          {outsideUsers.map(u => (
+            <div key={u.identity} className="flex items-center gap-2 px-1 py-0.5">
+              <div className="h-4 w-4 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center">
+                <span className="text-[8px] text-green-400 font-bold">{(u.name||u.identity).slice(0,1).toUpperCase()}</span>
+              </div>
+              <span className="text-[11px] text-muted-foreground truncate">{u.name || u.identity}</span>
+              <Mic className="h-2.5 w-2.5 text-green-400 ml-auto" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {expanded && (
         <div className="px-2 pb-2 space-y-1">

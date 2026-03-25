@@ -35,9 +35,14 @@ interface EditProfileModalProps {
 }
 
 async function uploadImage(file: File): Promise<string> {
-  const fd = new FormData()
-  fd.append('file', file)
-  const res = await fetch('/api/upload', { method: 'POST', body: fd })
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: {
+      'Content-Type': file.type,
+      'X-Filename': encodeURIComponent(file.name),
+    },
+    body: file,
+  })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error)
   return data.url
