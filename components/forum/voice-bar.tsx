@@ -47,35 +47,14 @@ function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () 
 
   // useTrackToggle: uses LiveKit's own observable system — reactive + no initialState issue
   const { toggle: toggleMic, enabled: isMicOn, pending: micPending } =
-    useTrackToggle({ source: Track.Source.Microphone })
+    useTrackToggle({ source: Track.Source.Microphone, onDeviceError: (e) => console.error('[Mic]', e) })
   const { toggle: toggleCam, enabled: isCamOn, pending: camPending } =
-    useTrackToggle({ source: Track.Source.Camera })
+    useTrackToggle({ source: Track.Source.Camera, onDeviceError: (e) => console.error('[Cam]', e) })
 
-  // Must request mic permission directly inside click handler (user gesture context).
-  // Browsers block getUserMedia if called from an async chain disconnected from the click.
-  const handleMicToggle = useCallback(async () => {
-    if (!isMicOn) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach(t => t.stop()) // release — LiveKit creates its own
-      } catch {
-        return // permission denied — don't toggle
-      }
-    }
-    await toggleMic()
-  }, [isMicOn, toggleMic])
-
-  const handleCamToggle = useCallback(async () => {
-    if (!isCamOn) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-        stream.getTracks().forEach(t => t.stop())
-      } catch {
-        return
-      }
-    }
-    await toggleCam()
-  }, [isCamOn, toggleCam])
+  // Call toggleMic directly — the click user-gesture context propagates through LiveKit's async chain.
+  // Do NOT pre-call getUserMedia: stopping that stream before LiveKit opens its own causes a conflict.
+  const handleMicToggle = useCallback(() => { toggleMic() }, [toggleMic])
+  const handleCamToggle = useCallback(() => { toggleCam() }, [toggleCam])
 
   const toggleFS = useCallback(() => {
     if (!caps.canFullscreen) return
@@ -239,35 +218,12 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
 
   // useTrackToggle: uses LiveKit's own observable — reactive, no initialState issue
   const { toggle: toggleMic, enabled: isMicOn, pending: micPending } =
-    useTrackToggle({ source: Track.Source.Microphone })
+    useTrackToggle({ source: Track.Source.Microphone, onDeviceError: (e) => console.error('[Mic]', e) })
   const { toggle: toggleCam, enabled: isCamOn, pending: camPending } =
-    useTrackToggle({ source: Track.Source.Camera })
+    useTrackToggle({ source: Track.Source.Camera, onDeviceError: (e) => console.error('[Cam]', e) })
 
-  // Request permission directly in the click handler (user gesture context).
-  // Browsers block getUserMedia when called from async chains not tied to a click.
-  const handleMicToggle = useCallback(async () => {
-    if (!isMicOn) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-        stream.getTracks().forEach(t => t.stop())
-      } catch {
-        return
-      }
-    }
-    await toggleMic()
-  }, [isMicOn, toggleMic])
-
-  const handleCamToggle = useCallback(async () => {
-    if (!isCamOn) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-        stream.getTracks().forEach(t => t.stop())
-      } catch {
-        return
-      }
-    }
-    await toggleCam()
-  }, [isCamOn, toggleCam])
+  const handleMicToggle = useCallback(() => { toggleMic() }, [toggleMic])
+  const handleCamToggle = useCallback(() => { toggleCam() }, [toggleCam])
 
   // Track participant changes to play join/leave sounds
   const prevSidsRef = useRef<Set<string>>(new Set())
