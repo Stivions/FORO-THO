@@ -107,7 +107,7 @@ export function MentionInput({
   }, [])
 
   return (
-    <div className="relative" onMouseDown={e => e.stopPropagation()}>
+    <div className="relative flex-1 min-w-0" onMouseDown={e => e.stopPropagation()}>
       <textarea
         ref={textareaRef}
         value={value}
