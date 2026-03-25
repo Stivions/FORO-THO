@@ -115,5 +115,5 @@ export default async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon|public).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|.*\\.(gif|png|jpg|jpeg|svg|webp|ico|mp4|webm|woff|woff2|ttf|otf)).*)'],
 }
