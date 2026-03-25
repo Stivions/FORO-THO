@@ -142,8 +142,11 @@ export function MentionInput({
                 }
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap">
                   <span className="font-medium truncate">{u.displayName ?? u.username}</span>
+                  {u.badges?.includes('verified') && (
+                    <span className="text-[9px] bg-sky-500/20 text-sky-400 border border-sky-500/30 rounded-full px-1 leading-4 font-semibold">✓</span>
+                  )}
                   {u.badges?.includes('bot') && (
                     <span className="text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded px-1 leading-4">BOT</span>
                   )}

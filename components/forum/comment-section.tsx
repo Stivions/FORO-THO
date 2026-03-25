@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MentionInput } from '@/components/ui/mention-input'
 import { RenderContent } from '@/components/ui/render-content'
+import { UserBadges } from '@/components/forum/user-badges'
 import { Heart, MessageCircle, MoreHorizontal, Flag, Trash2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -109,9 +110,7 @@ function CommentItem({ comment, depth = 0, postId, currentUserId, onDelete, onRe
             >
               {displayName}
             </Link>
-            {comment.author.badges?.includes('bot') && (
-              <span className="text-[9px] bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded px-1 leading-4 font-medium">BOT</span>
-            )}
+            <UserBadges badges={comment.author.badges} size="sm" />
             <span className="text-xs text-muted-foreground">{timeAgo(comment.createdAt)}</span>
           </div>
 

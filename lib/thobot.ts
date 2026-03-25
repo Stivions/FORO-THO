@@ -1,31 +1,43 @@
+import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
 import { Comment } from '@/models/Comment'
 import { Post } from '@/models/Post'
 import { Notification } from '@/models/Notification'
 
-const BOT_USERNAME = 'thobot'
-const BOT_EMAIL    = 'thobot@forotho.internal'
-// A fixed password — the bot never logs in
-const BOT_PASSWORD = 'THOBot$$NoLogin2024!'
+export const BOT_USERNAME = 'thobot'
+export const BOT_EMAIL    = 'thobot@forotho.internal'
+// Plain-text password — stored hashed. Use these to log in and customize the bot.
+export const BOT_PASSWORD_PLAIN = 'ThoBot2024!'
 
 let _botId: string | null = null
 
 export async function getBotUserId(): Promise<string> {
   if (_botId) return _botId
   await connectDB()
-  let bot = await User.findOne({ username: BOT_USERNAME }).select('_id').lean()
+
+  let bot = await User.findOne({ username: BOT_USERNAME }).select('_id password').lean()
+
   if (!bot) {
+    const hashed = await bcrypt.hash(BOT_PASSWORD_PLAIN, 10)
     bot = await User.create({
       username:    BOT_USERNAME,
       email:       BOT_EMAIL,
-      password:    BOT_PASSWORD,
+      password:    hashed,
       displayName: 'ThoBot',
       bio:         'Soy el asistente IA del foro. Mencioname con @thobot para preguntarme lo que quieras.',
       role:        'user',
-      badges:      ['bot'],
+      badges:      ['bot', 'verified'],
     })
+  } else {
+    // If the bot was created before with a plain-text password, re-hash it
+    const pw = (bot as any).password ?? ''
+    if (!pw.startsWith('$2')) {
+      const hashed = await bcrypt.hash(BOT_PASSWORD_PLAIN, 10)
+      await User.findByIdAndUpdate((bot as any)._id, { password: hashed, badges: ['bot', 'verified'] })
+    }
   }
+
   _botId = (bot as any)._id.toString()
   return _botId!
 }
@@ -51,7 +63,7 @@ async function callGroq(systemPrompt: string, userMessage: string): Promise<stri
       model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user',   content: userMessage },
+        { role: 'user',   content: userMessage  },
       ],
       max_tokens: 600,
       temperature: 0.7,
@@ -63,12 +75,6 @@ async function callGroq(systemPrompt: string, userMessage: string): Promise<stri
   return data.choices?.[0]?.message?.content?.trim() ?? 'No pude generar una respuesta.'
 }
 
-/**
- * Trigger a bot reply on a post.
- * postContext: title + content of the post for context
- * question:    the comment/post content that mentioned @thobot
- * parentCommentId: if replying to a specific comment
- */
 export async function triggerBotReply(
   postId: string,
   postContext: string,
@@ -81,7 +87,6 @@ Eres amigable, útil, conciso y respondes en el mismo idioma en que te escriben 
 No uses markdown complejo — usa texto plano con saltos de línea si es necesario.
 Contexto del post: "${postContext.slice(0, 400)}"`
 
-    // Strip the @thobot mention from the question so the AI gets clean input
     const cleanQuestion = question.replace(/@thobot/gi, '').trim() || question
 
     const [botId, reply] = await Promise.all([
@@ -103,10 +108,6 @@ Contexto del post: "${postContext.slice(0, 400)}"`
   }
 }
 
-/**
- * Notify users mentioned with @username in a post/comment.
- * Skips the bot and the author themselves.
- */
 export async function notifyMentions(
   text: string,
   authorId: string,
@@ -117,9 +118,7 @@ export async function notifyMentions(
   if (mentions.length === 0) return
 
   await connectDB()
-  const users = await User.find({
-    username: { $in: mentions },
-  }).select('_id username').lean()
+  const users = await User.find({ username: { $in: mentions } }).select('_id').lean()
 
   for (const u of users) {
     const uid = (u as any)._id.toString()
