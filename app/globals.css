@@ -130,6 +130,16 @@
   }
 }
 
+/* @mention links inside "my" (primary) chat bubbles */
+.my-bubble a {
+  color: rgba(255, 255, 255, 0.92) !important;
+  text-decoration: underline;
+  font-weight: 600;
+}
+.my-bubble a:hover {
+  color: #ffffff !important;
+}
+
 /* Custom scrollbar for dark theme */
 ::-webkit-scrollbar {
   width: 8px;
