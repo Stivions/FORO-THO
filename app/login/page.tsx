@@ -4,13 +4,43 @@ import { useState, useRef } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 
 type Mode = 'login' | 'register'
 
 const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY ?? '10000000-ffff-ffff-ffff-000000000001'
+
+/* ── DedSec skull SVG ── */
+function DedSecLogo() {
+  return (
+    <svg viewBox="0 0 120 120" className="w-24 h-24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer glow ring */}
+      <circle cx="60" cy="60" r="55" stroke="#00fff5" strokeWidth="1" strokeDasharray="4 3" opacity="0.4"/>
+      {/* Skull shape */}
+      <path d="M60 18 C38 18 24 34 24 52 C24 64 30 74 40 80 L40 96 C40 98 42 100 44 100 L76 100 C78 100 80 98 80 96 L80 80 C90 74 96 64 96 52 C96 34 82 18 60 18Z" fill="#000" stroke="#00fff5" strokeWidth="1.5"/>
+      {/* Left eye */}
+      <ellipse cx="47" cy="52" rx="10" ry="11" fill="#00fff5" opacity="0.9"/>
+      <ellipse cx="47" cy="52" rx="5"  ry="6"  fill="#000"/>
+      <circle  cx="44" cy="49" r="2"   fill="#00fff5" opacity="0.6"/>
+      {/* Right eye */}
+      <ellipse cx="73" cy="52" rx="10" ry="11" fill="#00fff5" opacity="0.9"/>
+      <ellipse cx="73" cy="52" rx="5"  ry="6"  fill="#000"/>
+      <circle  cx="70" cy="49" r="2"   fill="#00fff5" opacity="0.6"/>
+      {/* Nose */}
+      <path d="M57 66 L60 72 L63 66Z" fill="#00fff5" opacity="0.5"/>
+      {/* Teeth */}
+      <rect x="44" y="88" width="8"  height="10" rx="1" fill="#00fff5" opacity="0.7"/>
+      <rect x="56" y="88" width="8"  height="10" rx="1" fill="#00fff5" opacity="0.7"/>
+      <rect x="68" y="88" width="8"  height="10" rx="1" fill="#00fff5" opacity="0.7"/>
+      {/* Jaw line */}
+      <path d="M40 80 Q60 84 80 80" stroke="#00fff5" strokeWidth="1.5" fill="none" opacity="0.5"/>
+      {/* Forehead lines - circuit style */}
+      <path d="M40 30 L40 38 L50 38" stroke="#00fff5" strokeWidth="1" opacity="0.4" fill="none"/>
+      <path d="M80 30 L80 38 L70 38" stroke="#00fff5" strokeWidth="1" opacity="0.4" fill="none"/>
+      <circle cx="40" cy="30" r="2" fill="#00fff5" opacity="0.6"/>
+      <circle cx="80" cy="30" r="2" fill="#00fff5" opacity="0.6"/>
+    </svg>
+  )
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -21,21 +51,16 @@ export default function LoginPage() {
   const captchaRef = useRef<HCaptcha>(null)
 
   const [form, setForm] = useState({ username: '', email: '', password: '' })
-
   const handle = (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
 
-    if (!captchaToken) {
-      setError('Completa el captcha')
-      return
-    }
+    if (!captchaToken) { setError('// ERROR: CAPTCHA_NOT_VERIFIED'); return }
 
     setLoading(true)
-
     try {
       if (mode === 'register') {
         const res = await fetch('/api/auth/register', {
@@ -45,7 +70,7 @@ export default function LoginPage() {
         })
         const data = await res.json()
         if (!res.ok) {
-          setError(data.error)
+          setError(`// ERROR: ${data.error?.toUpperCase()}`)
           captchaRef.current?.resetCaptcha()
           setCaptchaToken(null)
           setLoading(false)
@@ -61,7 +86,7 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        setError('Email o contraseña incorrectos')
+        setError('// ERROR: CREDENCIALES_INVALIDAS')
         captchaRef.current?.resetCaptcha()
         setCaptchaToken(null)
       } else {
@@ -80,59 +105,106 @@ export default function LoginPage() {
     captchaRef.current?.resetCaptcha()
   }
 
+  const title = mode === 'login' ? 'NOSOTROS NO MORIMOS' : 'ÚNETE A DEDSEC'
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-6">
-        {/* Logo */}
-        <div className="text-center space-y-2">
-          <div className="flex justify-center">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <svg viewBox="0 0 32 32" className="w-6 h-6" fill="none">
-                <path d="M4 8h24M4 16h16M4 24h18" stroke="white" strokeWidth="3" strokeLinecap="round"/>
-              </svg>
-            </div>
+    <div
+      className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
+      style={{ background: '#000', fontFamily: 'monospace' }}
+    >
+      {/* Background grid */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: `linear-gradient(#00fff508 1px, transparent 1px), linear-gradient(90deg, #00fff508 1px, transparent 1px)`,
+        backgroundSize: '40px 40px',
+      }}/>
+
+      {/* Scanline effect */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0,
+          height: '2px', background: 'linear-gradient(transparent, #00fff520, transparent)',
+          animation: 'scanline 6s linear infinite',
+        }}/>
+      </div>
+
+      {/* Corner decorations */}
+      <div className="absolute top-6 left-6 pointer-events-none" style={{ color: '#00fff530', fontSize: '10px', letterSpacing: '0.1em' }}>
+        <div>SYS::DEDSEC_NET</div>
+        <div>STATUS: ONLINE</div>
+      </div>
+      <div className="absolute top-6 right-6 pointer-events-none text-right" style={{ color: '#00fff530', fontSize: '10px' }}>
+        <div>NODE_ID: 7734</div>
+        <div>ENC: AES-256</div>
+      </div>
+      <div className="absolute bottom-6 left-6 pointer-events-none" style={{ color: '#00fff320', fontSize: '9px' }}>
+        {'> WE_ARE_DEDSEC'}
+      </div>
+      <div className="absolute bottom-6 right-6 pointer-events-none" style={{ color: '#00fff320', fontSize: '9px' }}>
+        {'> CTOS_OFFLINE'}
+      </div>
+
+      {/* Main card */}
+      <div className="w-full max-w-sm relative z-10" style={{
+        border: '1px solid #00fff530',
+        background: '#00000099',
+        backdropFilter: 'blur(10px)',
+        padding: '2.5rem 2rem',
+      }}>
+        {/* Corner brackets */}
+        <div className="absolute top-0 left-0 w-4 h-4 border-t border-l" style={{ borderColor: '#00fff5' }}/>
+        <div className="absolute top-0 right-0 w-4 h-4 border-t border-r" style={{ borderColor: '#00fff5' }}/>
+        <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l" style={{ borderColor: '#00fff5' }}/>
+        <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r" style={{ borderColor: '#00fff5' }}/>
+
+        {/* Logo + Title */}
+        <div className="flex flex-col items-center mb-8 gap-3">
+          <div style={{ filter: 'drop-shadow(0 0 12px #00fff5)' }}>
+            <DedSecLogo />
           </div>
-          <h1 className="text-2xl font-bold text-foreground">
-            {mode === 'login' ? 'Bienvenido de vuelta' : 'Crear cuenta'}
+          <h1
+            className="dedsec-glitch text-center text-lg font-bold tracking-widest uppercase"
+            data-text={title}
+            style={{ color: '#00fff5', textShadow: '0 0 8px #00fff5, 0 0 20px #00fff540', letterSpacing: '0.2em' }}
+          >
+            {title}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {mode === 'login' ? 'Inicia sesión para continuar' : 'Únete a la comunidad'}
+          <p style={{ color: '#00fff550', fontSize: '10px', letterSpacing: '0.15em' }}>
+            {mode === 'login' ? '> AUTENTICACIÓN REQUERIDA' : '> REGISTRO DE AGENTE'}
           </p>
         </div>
 
         {/* Form */}
-        <form onSubmit={submit} className="space-y-4">
+        <form onSubmit={submit} className="flex flex-col gap-4">
           {mode === 'register' && (
-            <div className="space-y-1">
-              <Label htmlFor="username">Usuario</Label>
-              <Input
-                id="username"
+            <div className="flex flex-col gap-1">
+              <label style={{ color: '#00fff580', fontSize: '10px', letterSpacing: '0.15em' }}>{'> IDENTIFICADOR'}</label>
+              <input
                 name="username"
                 placeholder="tu_usuario"
                 value={form.username}
                 onChange={handle}
                 required
+                className="dedsec-input w-full px-3 py-2 text-sm rounded-none outline-none"
               />
             </div>
           )}
 
-          <div className="space-y-1">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
+          <div className="flex flex-col gap-1">
+            <label style={{ color: '#00fff580', fontSize: '10px', letterSpacing: '0.15em' }}>{'> EMAIL'}</label>
+            <input
               name="email"
               type="email"
-              placeholder="tu@email.com"
+              placeholder="agente@dedsec.net"
               value={form.email}
               onChange={handle}
               required
+              className="dedsec-input w-full px-3 py-2 text-sm rounded-none outline-none"
             />
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="password">Contraseña</Label>
-            <Input
-              id="password"
+          <div className="flex flex-col gap-1">
+            <label style={{ color: '#00fff580', fontSize: '10px', letterSpacing: '0.15em' }}>{'> CONTRASEÑA'}</label>
+            <input
               name="password"
               type="password"
               placeholder="••••••••"
@@ -140,40 +212,48 @@ export default function LoginPage() {
               onChange={handle}
               required
               minLength={6}
+              className="dedsec-input w-full px-3 py-2 text-sm rounded-none outline-none"
             />
           </div>
 
           {/* hCaptcha */}
-          <div className="flex justify-center">
+          <div className="flex justify-center mt-1">
             <HCaptcha
               ref={captchaRef}
               sitekey={HCAPTCHA_SITE_KEY}
-              onVerify={(token) => setCaptchaToken(token)}
+              onVerify={token => setCaptchaToken(token)}
               onExpire={() => setCaptchaToken(null)}
-              onError={() => { setCaptchaToken(null); setError('Error en el captcha, inténtalo de nuevo') }}
+              onError={() => { setCaptchaToken(null); setError('// ERROR: CAPTCHA_FAILED') }}
               theme="dark"
             />
           </div>
 
           {error && (
-            <p className="text-sm text-destructive">{error}</p>
+            <p style={{ color: '#ff003c', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+              {error}
+            </p>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading || !captchaToken}>
-            {loading ? 'Cargando...' : mode === 'login' ? 'Iniciar sesión' : 'Registrarse'}
-          </Button>
+          <button
+            type="submit"
+            disabled={loading || !captchaToken}
+            className="dedsec-btn w-full py-2.5 text-sm mt-1"
+          >
+            {loading ? '> PROCESANDO...' : mode === 'login' ? '> ACCEDER AL SISTEMA' : '> REGISTRAR AGENTE'}
+          </button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground">
-          {mode === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
+        {/* Switch mode */}
+        <div className="mt-6 text-center" style={{ fontSize: '11px', color: '#00fff540' }}>
+          {mode === 'login' ? '¿Sin acceso?' : '¿Ya eres agente?'}{' '}
           <button
             type="button"
-            className="text-primary underline-offset-4 hover:underline"
             onClick={switchMode}
+            style={{ color: '#00fff5', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace' }}
           >
-            {mode === 'login' ? 'Regístrate' : 'Inicia sesión'}
+            {mode === 'login' ? 'UNIRSE' : 'INGRESAR'}
           </button>
-        </p>
+        </div>
       </div>
     </div>
   )
