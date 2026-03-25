@@ -366,7 +366,7 @@ export default function GroupChatPage() {
                 </p>
               )}
 
-              <div>
+              <div className="flex flex-col gap-0.5">
                 {messages.map((msg, i) => {
                   const isMine     = msg.author._id === sessionId
                   const prevAuthor = messages[i - 1]?.author._id
@@ -378,78 +378,70 @@ export default function GroupChatPage() {
                     <div
                       key={msg._id}
                       className={cn(
-                        'group/msg flex gap-3 px-4 py-0.5 hover:bg-white/[0.03] transition-colors w-full',
-                        showHeader && 'mt-4 pt-1',
-                        isMine && 'bg-primary/[0.04]'
+                        'group/msg flex gap-2 px-4',
+                        isMine ? 'flex-row-reverse' : 'flex-row',
+                        showHeader ? 'mt-4' : 'mt-0.5'
                       )}
                     >
-                      {/* Avatar column — always left */}
-                      <div className="shrink-0 w-9 mt-0.5">
-                        {showHeader ? (
-                          <Link href={`/u/${msg.author.username}`}>
-                            <Avatar className="h-9 w-9">
-                              <AvatarImage src={msg.author.avatar ?? ''} />
-                              <AvatarFallback className="text-[11px]">
-                                {msg.author.username.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                          </Link>
-                        ) : (
-                          /* timestamp on hover for consecutive messages */
-                          <span className="hidden group-hover/msg:block text-[9px] text-muted-foreground/50 text-right leading-9 select-none">
-                            {new Date(msg.createdAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        )}
-                      </div>
+                      {/* Avatar */}
+                      {showHeader ? (
+                        <Link href={`/u/${msg.author.username}`} className="shrink-0 self-end mb-0.5">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={msg.author.avatar ?? ''} />
+                            <AvatarFallback className="text-[10px]">
+                              {msg.author.username.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Link>
+                      ) : (
+                        <div className="w-8 shrink-0" />
+                      )}
 
-                      {/* Content — fills full remaining width */}
-                      <div className="flex-1 min-w-0">
+                      {/* Bubble */}
+                      <div className={cn('flex flex-col max-w-[70%]', isMine && 'items-end')}>
                         {showHeader && (
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Link href={`/u/${msg.author.username}`} className={cn('text-sm font-semibold hover:underline', isMine ? 'text-primary' : 'text-foreground')}>
-                              {name}
-                            </Link>
+                          <div className={cn('flex items-center gap-1.5 mb-1 flex-wrap', isMine && 'flex-row-reverse')}>
+                            <span className="text-xs font-semibold">{name}</span>
                             <UserBadges badges={msg.author.badges} size="sm" />
-                            <span className="text-[11px] text-muted-foreground">
+                            <span className="text-[10px] text-muted-foreground">
                               {formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true, locale: es })}
                             </span>
                           </div>
                         )}
 
-                        {/* Image */}
-                        {msg.imageUrl && (
-                          <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-0.5">
-                            <img
-                              src={msg.imageUrl}
-                              alt="imagen"
-                              className="rounded-lg max-w-sm max-h-72 object-cover cursor-pointer hover:opacity-90 transition-opacity border border-border/30"
-                            />
-                          </a>
-                        )}
+                        <div className={cn('flex items-end gap-1', isMine && 'flex-row-reverse')}>
+                          {/* Admin delete */}
+                          {isAdmin && (
+                            <button
+                              onClick={() => deleteMessage(msg._id)}
+                              className="shrink-0 opacity-0 group-hover/msg:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive transition-all"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
 
-                        {/* Text */}
-                        {msg.content && (
-                          <p className="text-sm text-foreground break-words leading-relaxed">
-                            <RenderContent text={msg.content} />
-                          </p>
-                        )}
-
-                        {/* Drive embeds */}
-                        {driveLinks.map(link => (
-                          <DriveEmbed key={link} url={link} />
-                        ))}
+                          <div className={cn(
+                            'px-3 py-2 text-sm break-words leading-relaxed rounded-2xl',
+                            isMine
+                              ? 'bg-primary text-primary-foreground rounded-br-sm'
+                              : 'bg-muted text-foreground rounded-bl-sm',
+                            !msg.content && msg.imageUrl && 'p-1 bg-transparent'
+                          )}>
+                            {msg.imageUrl && (
+                              <a href={msg.imageUrl} target="_blank" rel="noopener noreferrer">
+                                <img
+                                  src={msg.imageUrl}
+                                  alt="imagen"
+                                  className="rounded-xl max-w-full max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                />
+                              </a>
+                            )}
+                            {msg.content && <RenderContent text={msg.content} />}
+                            {driveLinks.map(link => <DriveEmbed key={link} url={link} />)}
+                          </div>
+                        </div>
                       </div>
-
-                      {/* Admin delete — appears on hover, far right */}
-                      {isAdmin && (
-                        <button
-                          onClick={() => deleteMessage(msg._id)}
-                          className="shrink-0 self-start mt-0.5 opacity-0 group-hover/msg:opacity-100 p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                          title="Eliminar mensaje"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
                     </div>
                   )
                 })}
