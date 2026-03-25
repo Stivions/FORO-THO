@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { MentionInput } from '@/components/ui/mention-input'
 import { RenderContent } from '@/components/ui/render-content'
 import { UserBadges } from '@/components/forum/user-badges'
-import { ArrowLeft, Users, Send, Loader2, Trash2, ImageIcon, X } from 'lucide-react'
+import { ArrowLeft, Users, Send, Loader2, Trash2, Paperclip, X, FileText, Film, FileArchive, File } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -102,7 +102,7 @@ export default function GroupChatPage() {
   const [text,        setText]        = useState('')
   const [sending,     setSending]     = useState(false)
   const [uploading,   setUploading]   = useState(false)
-  const [imagePreview, setImagePreview] = useState<{ url: string; file: File } | null>(null)
+  const [filePreview, setFilePreview] = useState<{ url: string; file: File; isImage: boolean } | null>(null)
   const [loading,     setLoading]     = useState(true)
   const [joined,      setJoined]      = useState(false)
   const [showMembers, setShowMembers] = useState(false)
@@ -195,19 +195,20 @@ export default function GroupChatPage() {
     }, 2500)
   }, [groupId, sessionId])
 
-  // Pick image from disk — show local preview first
+  // Pick any file from disk — show local preview first
   const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const localUrl = URL.createObjectURL(file)
-    setImagePreview({ url: localUrl, file })
+    const isImage = file.type.startsWith('image/')
+    const localUrl = isImage ? URL.createObjectURL(file) : ''
+    setFilePreview({ url: localUrl, file, isImage })
     e.target.value = ''
   }
 
   const sendMessage = useCallback(async (overrideImageUrl?: string) => {
-    const hasText  = !!text.trim()
-    const hasImage = !!imagePreview || !!overrideImageUrl
-    if (!hasText && !hasImage) return
+    const hasText = !!text.trim()
+    const hasFile = !!filePreview || !!overrideImageUrl
+    if (!hasText && !hasFile) return
     if (!sessionId || sending) return
 
     setSending(true)
@@ -218,17 +219,17 @@ export default function GroupChatPage() {
     try {
       let uploadedUrl: string | null = overrideImageUrl ?? null
 
-      // Upload image if we have a local preview
-      if (imagePreview && !overrideImageUrl) {
+      // Upload file if we have a local preview
+      if (filePreview && !overrideImageUrl) {
         setUploading(true)
         try {
           const res = await fetch('/api/upload', {
             method: 'POST',
             headers: {
-              'Content-Type': imagePreview.file.type,
-              'x-filename': encodeURIComponent(imagePreview.file.name),
+              'Content-Type': filePreview.file.type || 'application/octet-stream',
+              'x-filename': encodeURIComponent(filePreview.file.name),
             },
-            body: imagePreview.file,
+            body: filePreview.file,
           })
           const data = await res.json()
           if (res.ok) uploadedUrl = data.url
@@ -252,13 +253,13 @@ export default function GroupChatPage() {
           lastMsgAt.current = data.message.createdAt
         }
         setText('')
-        setImagePreview(null)
+        setFilePreview(null)
         setTimeout(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, 50)
       }
     } finally {
       setSending(false)
     }
-  }, [text, imagePreview, sessionId, sending, groupId])
+  }, [text, filePreview, sessionId, sending, groupId])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -479,17 +480,24 @@ export default function GroupChatPage() {
           {/* Input bar */}
           {canChat ? (
             <div className="border-t border-border bg-card shrink-0">
-              {/* Image preview strip */}
-              {imagePreview && (
+              {/* File preview strip */}
+              {filePreview && (
                 <div className="px-3 pt-2.5 flex items-start gap-2">
                   <div className="relative shrink-0">
-                    <img
-                      src={imagePreview.url}
-                      alt="preview"
-                      className="h-20 w-20 object-cover rounded-lg border border-border"
-                    />
+                    {filePreview.isImage ? (
+                      <img
+                        src={filePreview.url}
+                        alt="preview"
+                        className="h-20 w-20 object-cover rounded-lg border border-border"
+                      />
+                    ) : (
+                      <div className="h-20 w-40 rounded-lg border border-border bg-muted flex items-center gap-2 px-3">
+                        <FileText className="h-6 w-6 text-muted-foreground shrink-0" />
+                        <span className="text-xs text-foreground truncate">{filePreview.file.name}</span>
+                      </div>
+                    )}
                     <button
-                      onClick={() => setImagePreview(null)}
+                      onClick={() => setFilePreview(null)}
                       className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground"
                     >
                       <X className="h-3 w-3" />
@@ -499,22 +507,22 @@ export default function GroupChatPage() {
               )}
 
               <div className="flex items-end gap-2 px-3 py-2.5">
-                {/* Image picker button */}
+                {/* File picker button */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                   className="shrink-0 h-10 w-10 flex items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  title="Adjuntar imagen"
+                  title="Adjuntar archivo (imagen, video, PDF, etc.)"
                 >
                   {uploading
                     ? <Loader2 className="h-5 w-5 animate-spin" />
-                    : <ImageIcon className="h-5 w-5" />
+                    : <Paperclip className="h-5 w-5" />
                   }
                 </button>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="*/*"
                   className="hidden"
                   onChange={handleImagePick}
                 />
@@ -544,7 +552,7 @@ export default function GroupChatPage() {
                 <Button
                   size="icon"
                   onClick={() => sendMessage()}
-                  disabled={(!text.trim() && !imagePreview) || sending || uploading}
+                  disabled={(!text.trim() && !filePreview) || sending || uploading}
                   className="h-10 w-10 shrink-0 rounded-xl"
                 >
                   {sending
