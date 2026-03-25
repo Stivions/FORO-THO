@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ImageIcon, Video, X, Upload, Loader2, Link2 } from 'lucide-react'
+import { FileText, X, Upload, Loader2, Link2, Download } from 'lucide-react'
 import { useCategories } from '@/hooks/use-categories'
 
 interface CreatePostModalProps {
@@ -17,14 +17,13 @@ interface CreatePostModalProps {
   onPostCreated?: () => void
 }
 
-// Convierte cualquier link de Drive al formato embed /preview
 function toDriveEmbed(link: string): string | null {
   const match = link.match(/\/d\/([a-zA-Z0-9_-]{10,})/)
   if (!match) return null
   return `https://drive.google.com/file/d/${match[1]}/preview`
 }
 
-type MediaMode = 'none' | 'image' | 'drive'
+type MediaMode = 'none' | 'image' | 'file' | 'drive'
 
 export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostModalProps) {
   const { categories } = useCategories()
@@ -34,7 +33,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [tags,         setTags]         = useState<string[]>([])
   const [tagInput,     setTagInput]     = useState('')
   const [mediaMode,    setMediaMode]    = useState<MediaMode>('none')
-  const [imageFile,    setImageFile]    = useState<File | null>(null)
+  const [mediaFile,    setMediaFile]    = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [driveLink,    setDriveLink]    = useState('')
   const [isDragging,   setIsDragging]   = useState(false)
@@ -45,27 +44,30 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const driveEmbed = mediaMode === 'drive' ? toDriveEmbed(driveLink) : null
   const driveValid  = driveEmbed !== null
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); setIsDragging(false)
-    const file = e.dataTransfer.files[0]
-    if (file?.type.startsWith('image/')) {
-      setImageFile(file)
+  const handleFilePick = useCallback((file: File) => {
+    setMediaFile(file)
+    if (file.type.startsWith('image/')) {
       setImagePreview(URL.createObjectURL(file))
       setMediaMode('image')
+    } else {
+      setImagePreview(null)
+      setMediaMode('file')
     }
   }, [])
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); setIsDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (file) handleFilePick(file)
+  }, [handleFilePick])
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setImageFile(file)
-      setImagePreview(URL.createObjectURL(file))
-      setMediaMode('image')
-    }
+    if (file) handleFilePick(file)
   }
 
   const removeMedia = () => {
-    setImageFile(null)
+    setMediaFile(null)
     if (imagePreview) { URL.revokeObjectURL(imagePreview); setImagePreview(null) }
     setDriveLink('')
     setMediaMode('none')
@@ -87,21 +89,21 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     try {
       let mediaUrl = ''; let mediaType = ''
 
-      if (mediaMode === 'image' && imageFile) {
+      if ((mediaMode === 'image' || mediaMode === 'file') && mediaFile) {
         setIsUploading(true)
         const upRes = await fetch('/api/upload', {
           method: 'POST',
           headers: {
-            'Content-Type': imageFile.type,
-            'X-Filename': encodeURIComponent(imageFile.name),
+            'Content-Type': mediaFile.type || 'application/octet-stream',
+            'X-Filename': encodeURIComponent(mediaFile.name),
           },
-          body: imageFile,
+          body: mediaFile,
         })
         const upData = await upRes.json()
         setIsUploading(false)
         if (!upRes.ok) { setError(upData.error); return }
         mediaUrl  = upData.url
-        mediaType = 'image'
+        mediaType = upData.type ?? (mediaMode === 'image' ? 'image' : 'file')
       } else if (mediaMode === 'drive' && driveEmbed) {
         mediaUrl  = driveEmbed
         mediaType = 'video'
@@ -147,7 +149,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
             className="min-h-[150px] bg-secondary border-border focus:border-primary resize-none"
           />
 
-          {/* Media */}
+          {/* ── Drop zone ── */}
           {mediaMode === 'none' && (
             <div
               onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
@@ -159,21 +161,23 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               )}
             >
               <Upload className="h-8 w-8 text-muted-foreground mb-2 mx-auto" />
-              <p className="text-sm text-foreground mb-3">Añadir imagen o video de Drive</p>
-              <div className="flex gap-2 justify-center">
+              <p className="text-sm text-foreground mb-1">Arrastra aquí o elige un archivo</p>
+              <p className="text-xs text-muted-foreground mb-3">Imágenes, PDFs, videos, ZIPs… hasta 500 MB</p>
+              <div className="flex gap-2 justify-center flex-wrap">
                 <label>
-                  <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                  <input type="file" accept="*/*" onChange={handleFileSelect} className="hidden" />
                   <Button variant="outline" size="sm" asChild>
-                    <span><ImageIcon className="h-4 w-4 mr-2" />Imagen</span>
+                    <span><Upload className="h-4 w-4 mr-2" />Elegir archivo</span>
                   </Button>
                 </label>
                 <Button variant="outline" size="sm" onClick={() => setMediaMode('drive')}>
-                  <Video className="h-4 w-4 mr-2" />Video de Drive
+                  <Link2 className="h-4 w-4 mr-2" />Link de Drive
                 </Button>
               </div>
             </div>
           )}
 
+          {/* ── Image preview ── */}
           {mediaMode === 'image' && imagePreview && (
             <div className="relative border rounded-lg overflow-hidden">
               <img src={imagePreview} alt="preview" className="w-full max-h-64 object-contain" />
@@ -183,12 +187,29 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
             </div>
           )}
 
+          {/* ── File (non-image) preview ── */}
+          {mediaMode === 'file' && mediaFile && (
+            <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{mediaFile.name}</p>
+                <p className="text-xs text-muted-foreground">{(mediaFile.size / 1024 / 1024).toFixed(2)} MB</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={removeMedia}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
+          {/* ── Drive link ── */}
           {mediaMode === 'drive' && (
             <div className="space-y-2">
               <div className="flex gap-2 items-center">
                 <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
                 <Input
-                  placeholder="Pega el link de Google Drive (compartir → Cualquiera con el link)"
+                  placeholder="Pega el link de Google Drive"
                   value={driveLink}
                   onChange={e => setDriveLink(e.target.value)}
                   className="bg-secondary border-border focus:border-primary"
@@ -198,17 +219,12 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
                 </Button>
               </div>
               {driveLink && !driveValid && (
-                <p className="text-xs text-destructive">Link inválido. Asegúrate de copiar el link de compartir de Drive.</p>
+                <p className="text-xs text-destructive">Link inválido. Usa el link de compartir de Drive.</p>
               )}
               {driveValid && (
                 <div className="w-full aspect-video rounded-lg overflow-hidden bg-secondary">
                   <iframe src={driveEmbed!} className="w-full h-full" allow="autoplay" allowFullScreen />
                 </div>
-              )}
-              {!driveLink && (
-                <p className="text-xs text-muted-foreground">
-                  En Drive: clic derecho en el video → Compartir → "Cualquiera con el link" → Copiar link
-                </p>
               )}
             </div>
           )}
@@ -257,7 +273,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               onClick={handleSubmit}
               disabled={!title.trim() || !content.trim() || !category || isSubmitting || (mediaMode === 'drive' && !driveValid)}
             >
-              {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Subiendo imagen...</>
+              {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Subiendo archivo...</>
                : isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Publicando...</>
                : 'Publicar'}
             </Button>

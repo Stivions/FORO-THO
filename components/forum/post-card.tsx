@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   ArrowUp, ArrowDown, MessageCircle, Share2,
-  MoreHorizontal, Flag, Pin, Trash2, Heart,
+  MoreHorizontal, Flag, Pin, Trash2, Heart, FileText, Download,
 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuContent,
@@ -167,6 +167,22 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
                   <video src={post.mediaUrl} controls className="w-full h-full object-cover" />
                 )}
               </div>
+            )}
+
+            {post.mediaUrl && post.mediaType === 'file' && (
+              <a
+                href={post.mediaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary hover:border-primary/50 transition-colors mb-3 group"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <span className="text-sm font-medium flex-1 truncate">Archivo adjunto</span>
+                <Download className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+              </a>
             )}
 
             {post.tags.length > 0 && (

@@ -22,7 +22,7 @@ const PostSchema = new Schema<IPost>(
     title:        { type: String, required: true, maxlength: 200 },
     content:      { type: String, required: true },
     mediaUrl:     { type: String, default: '' },
-    mediaType:    { type: String, enum: ['image', 'video', ''], default: '' },
+    mediaType:    { type: String, enum: ['image', 'video', 'file', ''], default: '' },
     author:       { type: Schema.Types.ObjectId, ref: 'User', required: true },
     category:     { type: String, required: true },
     tags:         [{ type: String }],
