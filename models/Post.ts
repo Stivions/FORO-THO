@@ -36,8 +36,10 @@ const PostSchema = new Schema<IPost>(
 )
 
 PostSchema.index({ createdAt: -1 })
-PostSchema.index({ category: 1 })
+PostSchema.index({ category: 1, createdAt: -1 })
 PostSchema.index({ tags: 1 })
+PostSchema.index({ author: 1, createdAt: -1 })
+PostSchema.index({ isPinned: 1, createdAt: -1 })
 
 if (process.env.NODE_ENV === 'development' && models.Post) delete (models as any).Post
 export const Post = models.Post || model<IPost>('Post', PostSchema)

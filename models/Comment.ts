@@ -22,6 +22,8 @@ const CommentSchema = new Schema(
 )
 
 CommentSchema.index({ post: 1, createdAt: 1 })
+CommentSchema.index({ author: 1, createdAt: -1 })
+CommentSchema.index({ parentComment: 1 })
 
 if (process.env.NODE_ENV === 'development' && models.Comment) delete (models as any).Comment
 export const Comment = models.Comment || model('Comment', CommentSchema)

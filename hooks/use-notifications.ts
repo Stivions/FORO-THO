@@ -55,7 +55,7 @@ const soundMap: Record<string, Parameters<typeof playSound>[0]> = {
   group_update:  'notification',
 }
 
-export function useNotifications(intervalMs = 6000) {
+export function useNotifications(intervalMs = 20000) {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [unread, setUnread]               = useState(0)
   const knownIdsRef                       = useRef<Set<string>>(new Set())
@@ -101,8 +101,21 @@ export function useNotifications(intervalMs = 6000) {
   useEffect(() => {
     requestBrowserPermission()
     fetchNotifs()
-    const id = setInterval(fetchNotifs, intervalMs)
-    return () => clearInterval(id)
+
+    let id: ReturnType<typeof setInterval> | undefined
+
+    const start = () => { id = setInterval(fetchNotifs, intervalMs) }
+    const stop  = () => { clearInterval(id); id = undefined }
+
+    // Pause polling when the tab is hidden — resume when visible again
+    const onVisibility = () => { document.hidden ? stop() : (fetchNotifs(), start()) }
+
+    start()
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
   }, [fetchNotifs, intervalMs])
 
   return { notifications, unread, markAllRead }

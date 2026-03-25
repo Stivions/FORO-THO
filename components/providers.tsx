@@ -1,10 +1,16 @@
 'use client'
 
 import { useEffect, createContext, useContext } from 'react'
+import dynamic from 'next/dynamic'
 import { VoiceRoomProvider } from '@/contexts/voice-room-context'
-import { VoiceBar } from '@/components/forum/voice-bar'
 import { unlockAudio } from '@/lib/sounds'
 import { useNotifications, type AppNotification } from '@/hooks/use-notifications'
+
+// Lazy-load VoiceBar — LiveKit is ~500KB, no need to ship it on every page
+const VoiceBar = dynamic(() => import('@/components/forum/voice-bar').then(m => ({ default: m.VoiceBar })), {
+  ssr: false,
+  loading: () => null,
+})
 
 /* ── Global notification context ── */
 interface NotifCtx {

@@ -48,6 +48,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Tipo de archivo no permitido.' }, { status: 400 })
     }
 
+    // Reject oversized uploads before reading the body (saves RAM + bandwidth)
+    const contentLength = req.headers.get('content-length')
+    if (contentLength && parseInt(contentLength, 10) > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'Archivo muy grande (máx 500 MB)' }, { status: 413 })
+    }
+
     const bytes  = await req.arrayBuffer()
     const buffer = Buffer.from(bytes)
 

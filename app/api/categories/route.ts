@@ -35,7 +35,9 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ categories })
+    return NextResponse.json({ categories }, {
+      headers: { 'Cache-Control': 'public, max-age=120, stale-while-revalidate=300' },
+    })
   } catch {
     return NextResponse.json({ error: 'Error al obtener categorías' }, { status: 500 })
   }

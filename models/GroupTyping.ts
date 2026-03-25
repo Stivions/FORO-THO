@@ -10,6 +10,8 @@ const GroupTypingSchema = new Schema({
 })
 
 GroupTypingSchema.index({ group: 1, user: 1 }, { unique: true })
+// Auto-delete stale typing indicators after 30s
+GroupTypingSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 30 })
 
 if (process.env.NODE_ENV === 'development' && models.GroupTyping) delete (models as any).GroupTyping
 export const GroupTyping = models.GroupTyping || model('GroupTyping', GroupTypingSchema)

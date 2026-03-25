@@ -59,6 +59,8 @@ export async function GET(req: Request) {
     return NextResponse.json({
       posts,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    }, {
+      headers: { 'Cache-Control': 'public, max-age=30, stale-while-revalidate=60' },
     })
   } catch (err) {
     console.error(err)

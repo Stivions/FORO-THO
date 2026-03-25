@@ -13,7 +13,13 @@ export async function connectDB() {
   if (cached.conn) return cached.conn
 
   if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((m) => m)
+    cached.promise = mongoose.connect(MONGODB_URI, {
+      maxPoolSize:              50,
+      minPoolSize:              5,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS:          45000,
+      connectTimeoutMS:         10000,
+    }).then((m) => m)
   }
 
   cached.conn = await cached.promise

@@ -53,6 +53,12 @@ const UserSchema = new Schema<IUser>(
   { timestamps: true }
 )
 
+// Indexes for search and lookup
+UserSchema.index({ username: 1 })
+UserSchema.index({ email: 1 })
+UserSchema.index({ username: 'text', displayName: 'text' })
+UserSchema.index({ createdAt: -1 })
+
 // En desarrollo forzar recreación para que los campos nuevos se reflejen
 if (process.env.NODE_ENV === 'development' && models.User) {
   delete (models as any).User

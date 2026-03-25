@@ -44,27 +44,56 @@ export async function GET(req: Request) {
     return NextResponse.json({ messages })
   }
 
-  /* Conversations list: last message per conversation partner */
-  const allMessages = await Message.find({
-    $or: [{ from: uid }, { to: uid }],
-  })
-    .sort({ createdAt: -1 })
-    .populate('from', 'username displayName avatar')
-    .populate('to',   'username displayName avatar')
-    .lean()
+  /* Conversations list — single aggregation pipeline, no N+1 */
+  const uidObj = new mongoose.Types.ObjectId(uid)
 
-  // Deduplicate: one entry per conversation partner
-  const seen = new Set<string>()
-  const conversations: any[] = []
-  for (const msg of allMessages) {
-    const partnerId = (msg.from as any)._id.toString() === uid
-      ? (msg.to as any)._id.toString()
-      : (msg.from as any)._id.toString()
-    if (seen.has(partnerId)) continue
-    seen.add(partnerId)
-    const unread = await Message.countDocuments({ from: partnerId, to: uid, read: false })
-    conversations.push({ lastMessage: msg, partner: (msg.from as any)._id.toString() === uid ? msg.to : msg.from, unread })
-  }
+  // 1. Unread counts per sender in one query
+  const unreadCounts = await Message.aggregate([
+    { $match: { to: uidObj, read: false } },
+    { $group: { _id: '$from', count: { $sum: 1 } } },
+  ])
+  const unreadMap = new Map(unreadCounts.map((r: any) => [r._id.toString(), r.count]))
+
+  // 2. Last message per conversation partner in one query
+  const lastMessages = await Message.aggregate([
+    { $match: { $or: [{ from: uidObj }, { to: uidObj }] } },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: {
+          $cond: [{ $eq: ['$from', uidObj] }, '$to', '$from'],
+        },
+        lastMsgId: { $first: '$_id' },
+      },
+    },
+    {
+      $lookup: {
+        from: 'messages',
+        localField: 'lastMsgId',
+        foreignField: '_id',
+        as: 'msg',
+      },
+    },
+    { $unwind: '$msg' },
+    {
+      $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'partner',
+        pipeline: [{ $project: { username: 1, displayName: 1, avatar: 1 } }],
+      },
+    },
+    { $unwind: '$partner' },
+    { $sort: { 'msg.createdAt': -1 } },
+    { $limit: 50 },
+  ])
+
+  const conversations = lastMessages.map((c: any) => ({
+    lastMessage: c.msg,
+    partner:     c.partner,
+    unread:      unreadMap.get(c._id.toString()) ?? 0,
+  }))
 
   return NextResponse.json({ conversations })
 }
