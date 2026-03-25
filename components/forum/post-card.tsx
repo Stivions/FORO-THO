@@ -71,7 +71,8 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
     else await navigator.clipboard.writeText(url)
   }
 
-  const isOwner = uid === post.author._id
+  const role    = (session?.user as any)?.role
+  const isOwner = uid === post.author._id || role === 'admin' || role === 'moderator'
   const score   = upvotes - downvotes
   const displayName = post.author.displayName || post.author.username
 
