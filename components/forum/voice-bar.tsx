@@ -18,20 +18,24 @@ import {
   Maximize2, Minimize2, X, Video, VideoOff,
 } from 'lucide-react'
 
-/* ── detect capabilities once (client-side only) ── */
-function getCapabilities() {
-  if (typeof window === 'undefined') return { canFullscreen: false, canScreenShare: false }
-  return {
-    canFullscreen:  !!document.fullscreenEnabled,
-    canScreenShare: !!(navigator.mediaDevices && typeof (navigator.mediaDevices as any).getDisplayMedia === 'function'),
-  }
+/* ── detect capabilities after mount (avoids SSR false-negatives) ── */
+function useCapabilities() {
+  const [caps, setCaps] = useState({ canFullscreen: false, canScreenShare: true }) // default: show all buttons
+  useEffect(() => {
+    setCaps({
+      canFullscreen:  !!document.fullscreenEnabled,
+      // hide screen share only on iOS where getDisplayMedia is truly absent
+      canScreenShare: !!(navigator.mediaDevices && 'getDisplayMedia' in navigator.mediaDevices),
+    })
+  }, [])
+  return caps
 }
 
 /* ─── Stream overlay ─── */
 function StreamOverlay({ onClose, onLeave }: { onClose: () => void; onLeave: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [isFS, setIsFS]             = useState(false)
-  const [caps]                      = useState(getCapabilities)
+  const caps                        = useCapabilities()
   const screenTracks = useTracks([Track.Source.ScreenShare], { onlySubscribed: false })
   const cameraTracks = useTracks([Track.Source.Camera],      { onlySubscribed: false })
   const participants = useParticipants()
@@ -203,7 +207,7 @@ function VoiceBarInner({ onLeave }: { onLeave: () => void }) {
   const screenTracks  = useTracks([Track.Source.ScreenShare], { onlySubscribed: false })
   const cameraTracks  = useTracks([Track.Source.Camera],      { onlySubscribed: false })
   const [showStream, setShowStream] = useState(false)
-  const [caps] = useState(getCapabilities)
+  const caps = useCapabilities()
   const hasStream = screenTracks.length > 0 || participants.some(p => p.isCameraEnabled)
 
   return (
