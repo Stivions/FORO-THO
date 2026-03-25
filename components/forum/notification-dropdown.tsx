@@ -6,7 +6,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bell, Heart, MessageCircle, UserPlus, Mail, AtSign, Users, CheckCircle, FileWarning } from 'lucide-react'
+import { Bell, Heart, MessageCircle, UserPlus, Mail, AtSign, Users, CheckCircle, FileWarning, X } from 'lucide-react'
 import { useGlobalNotifications } from '@/components/providers'
 import type { AppNotification } from '@/hooks/use-notifications'
 import { cn } from '@/lib/utils'
