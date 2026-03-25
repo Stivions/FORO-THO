@@ -8,6 +8,8 @@ import HCaptcha from '@hcaptcha/react-hcaptcha'
 type Mode = 'login' | 'register'
 
 const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY ?? '10000000-ffff-ffff-ffff-000000000001'
+const BG_IMAGES = ['/fondologin.jpg', '/fondologin1.png']
+const BG_INTERVAL = 6000 // ms per image
 
 
 export default function LoginPage() {
@@ -23,13 +25,27 @@ export default function LoginPage() {
   const [audioReady, setAudioReady] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  // Autoplay on mount — if blocked, show play button on first interaction
+  // Background image rotation
+  const [bgIndex, setBgIndex] = useState(0)
+  const [bgFading, setBgFading] = useState(false)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setBgFading(true)
+      setTimeout(() => {
+        setBgIndex(i => (i + 1) % BG_IMAGES.length)
+        setBgFading(false)
+      }, 800)
+    }, BG_INTERVAL)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Autoplay on mount — if blocked, play on first user interaction
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
     audio.volume = 0.5
     audio.play().then(() => setAudioReady(true)).catch(() => {
-      // Blocked by browser — play on first user interaction
       const unlock = () => {
         audio.play().then(() => setAudioReady(true)).catch(() => {})
         document.removeEventListener('click', unlock)
@@ -109,6 +125,23 @@ export default function LoginPage() {
       className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       style={{ background: '#000', fontFamily: 'monospace' }}
     >
+      {/* Rotating background images */}
+      {BG_IMAGES.map((src, i) => (
+        <div
+          key={src}
+          style={{
+            position: 'absolute', inset: 0, zIndex: 0,
+            backgroundImage: `url(${src})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: i === bgIndex ? (bgFading ? 0 : 0.18) : 0,
+            transition: 'opacity 0.8s ease-in-out',
+            pointerEvents: 'none',
+          }}
+        />
+      ))}
+      {/* Dark overlay to keep DedSec feel */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: 'linear-gradient(135deg, #000000cc 0%, #050810bb 100%)', pointerEvents: 'none' }} />
       {/* Audio */}
       <audio ref={audioRef} src="/cancionlogin.mp3" loop preload="auto" />
 
