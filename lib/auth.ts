@@ -3,17 +3,23 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { connectDB } from './mongodb'
 import { User } from '@/models/User'
+import { verifyHCaptcha } from './hcaptcha'
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'credentials',
       credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+        email:        { label: 'Email',    type: 'email' },
+        password:     { label: 'Password', type: 'password' },
+        captchaToken: { label: 'Captcha',  type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
+
+        if (!credentials.captchaToken || !(await verifyHCaptcha(credentials.captchaToken))) {
+          return null
+        }
 
         await connectDB()
         const user = await User.findOne({ email: credentials.email })

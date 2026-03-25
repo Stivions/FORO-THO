@@ -2,13 +2,18 @@ import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
+import { verifyHCaptcha } from '@/lib/hcaptcha'
 
 export async function POST(req: Request) {
   try {
-    const { username, email, password } = await req.json()
+    const { username, email, password, captchaToken } = await req.json()
 
     if (!username || !email || !password) {
       return NextResponse.json({ error: 'Todos los campos son requeridos' }, { status: 400 })
+    }
+
+    if (!captchaToken || !(await verifyHCaptcha(captchaToken))) {
+      return NextResponse.json({ error: 'Captcha inválido' }, { status: 400 })
     }
 
     await connectDB()

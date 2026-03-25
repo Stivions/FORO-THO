@@ -1,19 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import HCaptcha from '@hcaptcha/react-hcaptcha'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 type Mode = 'login' | 'register'
 
+const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY ?? '10000000-ffff-ffff-ffff-000000000001'
+
 export default function LoginPage() {
   const router = useRouter()
   const [mode, setMode] = useState<Mode>('login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const captchaRef = useRef<HCaptcha>(null)
 
   const [form, setForm] = useState({ username: '', email: '', password: '' })
 
@@ -23,6 +28,12 @@ export default function LoginPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
+    if (!captchaToken) {
+      setError('Completa el captcha')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -30,20 +41,29 @@ export default function LoginPage() {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form),
+          body: JSON.stringify({ ...form, captchaToken }),
         })
         const data = await res.json()
-        if (!res.ok) { setError(data.error); setLoading(false); return }
+        if (!res.ok) {
+          setError(data.error)
+          captchaRef.current?.resetCaptcha()
+          setCaptchaToken(null)
+          setLoading(false)
+          return
+        }
       }
 
       const result = await signIn('credentials', {
         email: form.email,
         password: form.password,
+        captchaToken,
         redirect: false,
       })
 
       if (result?.error) {
         setError('Email o contraseña incorrectos')
+        captchaRef.current?.resetCaptcha()
+        setCaptchaToken(null)
       } else {
         router.push('/')
         router.refresh()
@@ -51,6 +71,13 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function switchMode() {
+    setMode(mode === 'login' ? 'register' : 'login')
+    setError('')
+    setCaptchaToken(null)
+    captchaRef.current?.resetCaptcha()
   }
 
   return (
@@ -116,11 +143,23 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* hCaptcha */}
+          <div className="flex justify-center">
+            <HCaptcha
+              ref={captchaRef}
+              sitekey={HCAPTCHA_SITE_KEY}
+              onVerify={(token) => setCaptchaToken(token)}
+              onExpire={() => setCaptchaToken(null)}
+              onError={() => { setCaptchaToken(null); setError('Error en el captcha, inténtalo de nuevo') }}
+              theme="dark"
+            />
+          </div>
+
           {error && (
             <p className="text-sm text-destructive">{error}</p>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || !captchaToken}>
             {loading ? 'Cargando...' : mode === 'login' ? 'Iniciar sesión' : 'Registrarse'}
           </Button>
         </form>
@@ -130,7 +169,7 @@ export default function LoginPage() {
           <button
             type="button"
             className="text-primary underline-offset-4 hover:underline"
-            onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }}
+            onClick={switchMode}
           >
             {mode === 'login' ? 'Regístrate' : 'Inicia sesión'}
           </button>
