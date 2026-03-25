@@ -32,7 +32,14 @@ export async function GET(req: Request) {
       sort === 'popular'
         ? Post.aggregate([
             { $match: filter },
-            { $addFields: { score: { $subtract: [{ $size: '$upvoters' }, { $size: '$downvoters' }] } } },
+            { $addFields: {
+                score: {
+                  $add: [
+                    { $subtract: [{ $size: '$upvoters' }, { $size: '$downvoters' }] },
+                    { $multiply: [{ $size: { $ifNull: ['$likers', []] } }, 2] },
+                  ]
+                }
+            }},
             { $sort: { isPinned: -1, score: -1, createdAt: -1 } },
             { $skip: skip },
             { $limit: limit },

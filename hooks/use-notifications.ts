@@ -5,7 +5,7 @@ import { playSound } from '@/lib/sounds'
 
 export interface AppNotification {
   _id: string
-  type: 'dm' | 'post_like' | 'comment' | 'follow' | 'mention'
+  type: 'dm' | 'post_like' | 'comment' | 'follow' | 'mention' | 'group_request' | 'group_update'
   from?: { _id: string; username: string; displayName?: string; avatar?: string }
   post?: { _id: string; title?: string }
   text: string
@@ -27,11 +27,13 @@ function showBrowserNotif(notif: AppNotification) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
   const who = notif.from?.displayName ?? notif.from?.username ?? 'Alguien'
   const messages: Record<string, string> = {
-    dm:        `${who} te envió un mensaje`,
-    post_like: `A ${who} le gustó tu post`,
-    comment:   `${who} comentó en tu post`,
-    follow:    `${who} te comenzó a seguir`,
-    mention:   `${who} te mencionó`,
+    dm:            `${who} te envió un mensaje`,
+    post_like:     `A ${who} le gustó tu post`,
+    comment:       `${who} comentó en tu post`,
+    follow:        `${who} te comenzó a seguir`,
+    mention:       `${who} te mencionó`,
+    group_request: notif.text || 'Nueva solicitud de grupo',
+    group_update:  notif.text || 'Actualización de tu grupo',
   }
   try {
     new Notification('FORO THO', {
@@ -44,11 +46,13 @@ function showBrowserNotif(notif: AppNotification) {
 }
 
 const soundMap: Record<string, Parameters<typeof playSound>[0]> = {
-  dm:        'dm',
-  post_like: 'like',
-  comment:   'comment',
-  follow:    'follow',
-  mention:   'notification',
+  dm:            'dm',
+  post_like:     'like',
+  comment:       'comment',
+  follow:        'follow',
+  mention:       'notification',
+  group_request: 'notification',
+  group_update:  'notification',
 }
 
 export function useNotifications(intervalMs = 6000) {

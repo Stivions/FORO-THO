@@ -6,7 +6,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Bell, Heart, MessageCircle, UserPlus, Mail, AtSign } from 'lucide-react'
+import { Bell, Heart, MessageCircle, UserPlus, Mail, AtSign, Users, CheckCircle } from 'lucide-react'
 import { useGlobalNotifications } from '@/components/providers'
 import type { AppNotification } from '@/hooks/use-notifications'
 import { cn } from '@/lib/utils'
@@ -14,19 +14,23 @@ import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const typeIcon: Record<string, React.ReactNode> = {
-  post_like: <Heart className="h-3.5 w-3.5 text-red-400" />,
-  comment:   <MessageCircle className="h-3.5 w-3.5 text-blue-400" />,
-  follow:    <UserPlus className="h-3.5 w-3.5 text-green-400" />,
-  dm:        <Mail className="h-3.5 w-3.5 text-purple-400" />,
-  mention:   <AtSign className="h-3.5 w-3.5 text-yellow-400" />,
+  post_like:     <Heart className="h-3.5 w-3.5 text-red-400" />,
+  comment:       <MessageCircle className="h-3.5 w-3.5 text-blue-400" />,
+  follow:        <UserPlus className="h-3.5 w-3.5 text-green-400" />,
+  dm:            <Mail className="h-3.5 w-3.5 text-purple-400" />,
+  mention:       <AtSign className="h-3.5 w-3.5 text-yellow-400" />,
+  group_request: <Users className="h-3.5 w-3.5 text-orange-400" />,
+  group_update:  <CheckCircle className="h-3.5 w-3.5 text-green-400" />,
 }
 
 const typeLabel: Record<string, string> = {
-  post_like: 'le dio like a tu post',
-  comment:   'comentó en tu post',
-  follow:    'te comenzó a seguir',
-  dm:        'te envió un mensaje',
-  mention:   'te mencionó',
+  post_like:     'le dio like a tu post',
+  comment:       'comentó en tu post',
+  follow:        'te comenzó a seguir',
+  dm:            'te envió un mensaje',
+  mention:       'te mencionó',
+  group_request: 'solicitó un grupo',
+  group_update:  '',
 }
 
 function NotifItem({ n }: { n: AppNotification }) {
@@ -46,9 +50,15 @@ function NotifItem({ n }: { n: AppNotification }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs leading-snug">
-          <span className="font-semibold">{who}</span>
-          {' '}{typeLabel[n.type] ?? 'hizo algo'}
-          {n.text ? <span className="text-muted-foreground"> · "{n.text}"</span> : null}
+          {n.type === 'group_update' || n.type === 'group_request' ? (
+            <span>{n.text || typeLabel[n.type]}</span>
+          ) : (
+            <>
+              <span className="font-semibold">{who}</span>
+              {' '}{typeLabel[n.type] ?? 'hizo algo'}
+              {n.text ? <span className="text-muted-foreground"> · "{n.text}"</span> : null}
+            </>
+          )}
         </p>
         <p className="text-[10px] text-muted-foreground mt-0.5">{ago}</p>
       </div>

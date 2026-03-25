@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Clock,
   MessageSquare,
+  Users,
   Plus,
   ChevronDown,
   ChevronRight,
@@ -28,9 +29,10 @@ interface LeftSidebarProps {
 }
 
 const navItems = [
-  { icon: Home,       label: 'Home',    href: '/',        active: true },
+  { icon: Home,       label: 'Home',    href: '/' },
   { icon: TrendingUp, label: 'Popular', href: '/popular' },
   { icon: Clock,      label: 'Latest',  href: '/latest' },
+  { icon: Users,      label: 'Grupos',  href: '/groups' },
 ]
 
 export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
@@ -98,12 +100,7 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
               <Link
                 key={item.label}
                 href={item.href}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  item.active
-                    ? 'bg-secondary text-foreground'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
-                )}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground"
               >
                 <item.icon className="w-5 h-5" />
                 {item.label}

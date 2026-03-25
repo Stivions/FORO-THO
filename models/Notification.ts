@@ -1,11 +1,11 @@
 import mongoose, { Schema, model, models } from 'mongoose'
 
-export type NotifType = 'dm' | 'post_like' | 'comment' | 'follow' | 'mention'
+export type NotifType = 'dm' | 'post_like' | 'comment' | 'follow' | 'mention' | 'group_request' | 'group_update'
 
 const NotificationSchema = new Schema(
   {
     user:    { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    type:    { type: String, enum: ['dm', 'post_like', 'comment', 'follow', 'mention'], required: true },
+    type:    { type: String, enum: ['dm', 'post_like', 'comment', 'follow', 'mention', 'group_request', 'group_update'], required: true },
     from:    { type: Schema.Types.ObjectId, ref: 'User' },
     post:    { type: Schema.Types.ObjectId, ref: 'Post' },
     text:    { type: String, default: '' },
