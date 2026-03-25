@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PostCard } from './post-card'
 import { ImageLightbox } from './image-lightbox'
@@ -40,6 +40,8 @@ export function PostFeed({ sort }: PostFeedProps = {}) {
   const [page, setPage]                 = useState(1)
   const [hasMore, setHasMore]           = useState(true)
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
+  const loadingRef  = useRef(false)   // guard against concurrent loads
+  const pageRef     = useRef(1)       // shadow page in a ref to avoid stale closure
 
   const buildUrl = (p: number) => {
     const params = new URLSearchParams({ page: String(p), limit: '20' })
@@ -50,7 +52,11 @@ export function PostFeed({ sort }: PostFeedProps = {}) {
   }
 
   const loadPosts = useCallback(async (reset = false) => {
-    const p = reset ? 1 : page
+    // Prevent duplicate concurrent requests
+    if (!reset && loadingRef.current) return
+    loadingRef.current = true
+
+    const p = reset ? 1 : pageRef.current
     if (reset) setIsLoading(true)
     else setIsLoadingMore(true)
 
@@ -59,27 +65,36 @@ export function PostFeed({ sort }: PostFeedProps = {}) {
       const data = await res.json()
       const newPosts: PostData[] = data.posts ?? []
 
-      setPosts(prev => reset ? newPosts : [...prev, ...newPosts])
+      setPosts(prev => {
+        if (reset) return newPosts
+        // Deduplicate by _id to prevent doubles on fast scroll
+        const seen = new Set(prev.map(p => p._id))
+        return [...prev, ...newPosts.filter(p => !seen.has(p._id))]
+      })
       setHasMore(p < (data.pagination?.pages ?? 1))
-      if (!reset) setPage(p + 1)
-      else        setPage(2)
+      const nextPage = reset ? 2 : p + 1
+      setPage(nextPage)
+      pageRef.current = nextPage
     } catch (err) {
       console.error(err)
     } finally {
       setIsLoading(false)
       setIsLoadingMore(false)
+      loadingRef.current = false
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, category, query])
+  }, [category, query, sort])
 
   // Reset when filters change
   useEffect(() => {
     setPosts([])
     setPage(1)
+    pageRef.current = 1
     setHasMore(true)
+    loadingRef.current = false
     loadPosts(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, query])
+  }, [category, query, sort])
 
   // Infinite scroll
   useEffect(() => {

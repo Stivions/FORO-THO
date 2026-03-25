@@ -20,7 +20,7 @@ export function ForumLayout({ children, sort, showRightSidebar = true }: ForumLa
   const [feedKey, setFeedKey] = useState(0)
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-16">
       <Navbar 
         onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         isMobileMenuOpen={isMobileMenuOpen}
