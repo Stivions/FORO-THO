@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Ticket } from '@/models/Ticket'
+import { TicketMessage } from '@/models/TicketMessage'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,4 +54,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!ticket) return NextResponse.json({ error: 'Ticket no encontrado' }, { status: 404 })
 
   return NextResponse.json({ ticket })
+}
+
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const isAdmin = (session.user as any).role === 'admin'
+  if (!isAdmin) return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
+
+  await connectDB()
+  await TicketMessage.deleteMany({ ticket: params.id })
+  await Ticket.findByIdAndDelete(params.id)
+
+  return NextResponse.json({ ok: true })
 }

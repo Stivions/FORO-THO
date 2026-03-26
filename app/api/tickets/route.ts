@@ -37,6 +37,10 @@ export async function POST(req: Request) {
   const uid = (session.user as any).id
 
   const ticket = await Ticket.create({ subject, category: category || 'support', user: uid })
+  // Set stable LiveKit room ID using MongoDB _id
+  ticket.roomId = `ticket-${ticket._id}`
+  await ticket.save()
+
   await TicketMessage.create({ ticket: ticket._id, sender: uid, content: message, isInternal: false })
 
   return NextResponse.json({ ticket }, { status: 201 })

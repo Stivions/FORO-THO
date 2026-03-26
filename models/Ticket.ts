@@ -8,6 +8,7 @@ export interface ITicket extends Document {
   assignedTo?: mongoose.Types.ObjectId
   adminNotes: string
   category: 'support' | 'billing' | 'report' | 'other'
+  roomId: string
   createdAt: Date
   updatedAt: Date
 }
@@ -21,6 +22,7 @@ const TicketSchema = new Schema<ITicket>(
     assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
     adminNotes: { type: String, default: '' },
     category:   { type: String, enum: ['support', 'billing', 'report', 'other'], default: 'support' },
+    roomId:     { type: String },
   },
   { timestamps: true }
 )

@@ -6,6 +6,8 @@ export interface IDonation extends Document {
   amount: number
   message: string
   paypalOrderId: string
+  cryptoTxHash?: string
+  cryptoCurrency?: string
   status: 'pending' | 'completed' | 'failed'
   createdAt: Date
   updatedAt: Date
@@ -13,12 +15,14 @@ export interface IDonation extends Document {
 
 const DonationSchema = new Schema<IDonation>(
   {
-    user:          { type: Schema.Types.ObjectId, ref: 'User' },
-    displayName:   { type: String, default: 'Anónimo' },
-    amount:        { type: Number, required: true, min: 5 },
-    message:       { type: String, default: '', maxlength: 200 },
-    paypalOrderId: { type: String, default: '' },
-    status:        { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+    user:           { type: Schema.Types.ObjectId, ref: 'User' },
+    displayName:    { type: String, default: 'Anónimo' },
+    amount:         { type: Number, required: true, min: 1 },
+    message:        { type: String, default: '', maxlength: 200 },
+    paypalOrderId:  { type: String, default: '' },
+    cryptoTxHash:   { type: String },
+    cryptoCurrency: { type: String },
+    status:         { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
   },
   { timestamps: true }
 )

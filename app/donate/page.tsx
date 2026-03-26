@@ -15,6 +15,12 @@ interface Donation {
 
 const PRESETS = [5, 10, 25, 50]
 
+const CRYPTO_WALLETS = {
+  BTC:  'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+  ETH:  '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
+  USDT: 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs',
+}
+
 function DonateContent() {
   const searchParams = useSearchParams()
   const success  = searchParams.get('success') === '1'
@@ -33,11 +39,65 @@ function DonateContent() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]           = useState('')
 
+  // Crypto donation state
+  const [tab, setTab]               = useState<'paypal' | 'crypto'>('paypal')
+  const [cryptoCoin, setCryptoCoin] = useState<'BTC' | 'ETH' | 'USDT'>('BTC')
+  const [cryptoTxHash, setCryptoTxHash] = useState('')
+  const [cryptoAmount, setCryptoAmount] = useState('')
+  const [cryptoMsg, setCryptoMsg]   = useState('')
+  const [cryptoName, setCryptoName] = useState('')
+  const [cryptoSubmitting, setCryptoSubmitting] = useState(false)
+  const [cryptoSuccess, setCryptoSuccess] = useState(false)
+  const [cryptoError, setCryptoError] = useState('')
+  const [copied, setCopied]         = useState<string | null>(null)
+
   useEffect(() => {
     if (user) {
-      setDisplayName((user as any).displayName || (user as any).username || '')
+      const name = (user as any).displayName || (user as any).username || ''
+      setDisplayName(name)
+      setCryptoName(name)
     }
   }, [user])
+
+  const copyToClipboard = (text: string, key: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key)
+      setTimeout(() => setCopied(null), 2000)
+    })
+  }
+
+  const handleCryptoDonate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCryptoError('')
+    const amt = Number(cryptoAmount)
+    if (!amt || amt < 1) { setCryptoError('Monto mínimo: $1'); return }
+    if (!cryptoTxHash.trim()) { setCryptoError('Ingresa el hash de la transacción'); return }
+    setCryptoSubmitting(true)
+    try {
+      const res = await fetch('/api/donations/crypto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: amt,
+          cryptoTxHash: cryptoTxHash.trim(),
+          cryptoCurrency: cryptoCoin,
+          message: cryptoMsg.trim(),
+          displayName: cryptoName.trim() || 'Anónimo',
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setCryptoSuccess(true)
+        setCryptoTxHash('')
+        setCryptoAmount('')
+        setCryptoMsg('')
+      } else {
+        setCryptoError(data.error ?? 'Error al enviar')
+      }
+    } finally {
+      setCryptoSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/donations')
@@ -139,6 +199,136 @@ function DonateContent() {
           <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l" style={{ borderColor: '#ffaa00' }} />
           <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r" style={{ borderColor: '#ffaa00' }} />
 
+          {/* Tab selector */}
+          <div className="flex gap-2 mb-5">
+            {(['paypal', 'crypto'] as const).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className="flex-1 py-2 rounded font-mono text-xs font-semibold transition-all"
+                style={{
+                  background: tab === t ? '#ffaa0025' : 'transparent',
+                  border: `1px solid ${tab === t ? '#ffaa00' : '#ffaa0030'}`,
+                  color: tab === t ? '#ffaa00' : '#ffaa0060',
+                  letterSpacing: '0.1em',
+                }}
+              >
+                {t === 'paypal' ? '💳 PAYPAL' : '₿ CRIPTO'}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'crypto' ? (
+            <div className="space-y-4">
+              {/* Coin selector */}
+              <div className="flex gap-2">
+                {(['BTC', 'ETH', 'USDT'] as const).map(coin => (
+                  <button
+                    key={coin}
+                    type="button"
+                    onClick={() => setCryptoCoin(coin)}
+                    className="flex-1 py-2 rounded font-mono text-xs font-bold transition-all"
+                    style={{
+                      background: cryptoCoin === coin ? '#ffaa0020' : 'transparent',
+                      border: `1px solid ${cryptoCoin === coin ? '#ffaa00' : '#ffaa0030'}`,
+                      color: cryptoCoin === coin ? '#ffaa00' : '#ffaa0060',
+                    }}
+                  >
+                    {coin}
+                  </button>
+                ))}
+              </div>
+
+              {/* Wallet address */}
+              <div>
+                <label className="block font-mono text-xs mb-1 tracking-widest" style={{ color: '#ffaa0080' }}>
+                  DIRECCIÓN {cryptoCoin}
+                </label>
+                <div
+                  className="flex items-center gap-2 p-3 rounded cursor-pointer transition-all"
+                  style={{ background: '#ffaa0010', border: '1px solid #ffaa0030' }}
+                  onClick={() => copyToClipboard(CRYPTO_WALLETS[cryptoCoin], cryptoCoin)}
+                >
+                  <span className="font-mono text-xs flex-1 break-all" style={{ color: '#ffaa00' }}>
+                    {CRYPTO_WALLETS[cryptoCoin]}
+                  </span>
+                  <span className="font-mono text-xs shrink-0" style={{ color: copied === cryptoCoin ? '#00ff88' : '#ffaa0060' }}>
+                    {copied === cryptoCoin ? '✓ COPIADO' : '📋 COPIAR'}
+                  </span>
+                </div>
+              </div>
+
+              {cryptoSuccess ? (
+                <div className="p-4 rounded font-mono text-sm text-center" style={{ background: '#00ff8815', border: '1px solid #00ff8840', color: '#00ff88' }}>
+                  ✓ ¡Donación registrada! El admin confirmará tu pago pronto.
+                </div>
+              ) : (
+                <form onSubmit={handleCryptoDonate} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-mono text-xs mb-1" style={{ color: '#ffaa0080' }}>MONTO (USD equiv.)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={cryptoAmount}
+                        onChange={e => setCryptoAmount(e.target.value)}
+                        placeholder="Ej: 10"
+                        className="dedsec-input w-full px-3 py-2 text-sm outline-none font-mono"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-mono text-xs mb-1" style={{ color: '#ffaa0080' }}>NOMBRE</label>
+                      <input
+                        value={cryptoName}
+                        onChange={e => setCryptoName(e.target.value)}
+                        placeholder="Anónimo"
+                        className="dedsec-input w-full px-3 py-2 text-sm outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block font-mono text-xs mb-1" style={{ color: '#ffaa0080' }}>HASH DE LA TRANSACCIÓN</label>
+                    <input
+                      value={cryptoTxHash}
+                      onChange={e => setCryptoTxHash(e.target.value)}
+                      placeholder="Pega el TX hash de tu envío..."
+                      className="dedsec-input w-full px-3 py-2 text-sm outline-none font-mono"
+                      required
+                    />
+                  </div>
+                  <textarea
+                    value={cryptoMsg}
+                    onChange={e => setCryptoMsg(e.target.value)}
+                    maxLength={200}
+                    rows={2}
+                    placeholder="Mensaje opcional..."
+                    className="dedsec-input w-full px-3 py-2 text-sm outline-none font-mono resize-none"
+                  />
+                  {cryptoError && <p className="font-mono text-xs" style={{ color: '#ff003c' }}>{cryptoError}</p>}
+                  <button
+                    type="submit"
+                    disabled={cryptoSubmitting}
+                    className="w-full py-3 rounded font-mono text-sm font-bold transition-all"
+                    style={{
+                      background: '#ffaa0025',
+                      border: '1px solid #ffaa00',
+                      color: '#ffaa00',
+                      letterSpacing: '0.1em',
+                      boxShadow: '0 0 20px #ffaa0015',
+                    }}
+                  >
+                    {cryptoSubmitting ? '> ENVIANDO...' : `> CONFIRMAR DONACIÓN ${cryptoCoin}`}
+                  </button>
+                  <p className="text-center font-mono text-xs" style={{ color: '#ffaa0040' }}>
+                    Envía primero a la wallet · luego pega el TX hash aquí
+                  </p>
+                </form>
+              )}
+            </div>
+          ) : (
           <form onSubmit={handleDonate} className="space-y-4">
             {/* Amount presets */}
             <div>
@@ -236,6 +426,7 @@ function DonateContent() {
               Pago seguro con PayPal · Sin cuenta requerida
             </p>
           </form>
+          )}
         </div>
 
         {/* Recent Donors */}

@@ -2,13 +2,22 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { useVoiceRoom } from '@/contexts/voice-room-context'
+import { Mic, MicOff, PhoneOff, Paperclip, X, Trash2, Phone } from 'lucide-react'
 
 interface TicketUser {
   _id: string
   username: string
   displayName?: string
   avatar?: string
+}
+
+interface Attachment {
+  url: string
+  name: string
+  mimeType: string
 }
 
 interface Ticket {
@@ -18,6 +27,7 @@ interface Ticket {
   priority: 'low' | 'normal' | 'high'
   category: string
   adminNotes?: string
+  roomId?: string
   user: TicketUser
   createdAt: string
 }
@@ -26,6 +36,7 @@ interface Message {
   _id: string
   content: string
   isInternal: boolean
+  attachments?: Attachment[]
   sender: TicketUser
   createdAt: string
 }
@@ -42,17 +53,40 @@ const STATUS_LABEL: Record<string, string> = {
   closed:      'CERRADO',
 }
 
+function isImage(mimeType: string) {
+  return mimeType.startsWith('image/')
+}
+
+function isVideo(mimeType: string) {
+  return mimeType.startsWith('video/')
+}
+
 export default function TicketDetailPage({ params }: { params: { id: string } }) {
   const { user, sessionId } = useCurrentUser()
-  const [ticket, setTicket]       = useState<Ticket | null>(null)
-  const [messages, setMessages]   = useState<Message[]>([])
-  const [loading, setLoading]     = useState(true)
-  const [content, setContent]     = useState('')
+  const router = useRouter()
+  const { roomName: activeRoom, join, leave } = useVoiceRoom()
+
+  const [ticket, setTicket]         = useState<Ticket | null>(null)
+  const [messages, setMessages]     = useState<Message[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [content, setContent]       = useState('')
   const [isInternal, setIsInternal] = useState(false)
-  const [sending, setSending]     = useState(false)
-  const [newStatus, setNewStatus] = useState('')
+  const [sending, setSending]       = useState(false)
+  const [newStatus, setNewStatus]   = useState('')
   const [adminNotes, setAdminNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [deleting, setDeleting]     = useState(false)
+
+  // Attachments
+  const [pendingFiles, setPendingFiles] = useState<{ file: File; uploading: boolean; url?: string; error?: string }[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Voice
+  const [joiningVoice, setJoiningVoice] = useState(false)
+  const [voiceError, setVoiceError]     = useState('')
+  const roomId    = ticket?.roomId ?? `ticket-${params.id}`
+  const inVoice   = activeRoom === roomId
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const isAdmin = (user as any)?.role === 'admin'
   const uid = sessionId
@@ -81,33 +115,78 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
     }).catch(() => {}).finally(() => setLoading(false))
   }, [params.id, uid])
 
-  // Poll every 5 seconds
   useEffect(() => {
     if (!uid) return
     const interval = setInterval(fetchMessages, 5000)
     return () => clearInterval(interval)
   }, [fetchMessages, uid])
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    e.target.value = ''
+
+    const newEntries = files.map(f => ({ file: f, uploading: true }))
+    setPendingFiles(prev => [...prev, ...newEntries])
+
+    for (const entry of newEntries) {
+      const formData = new FormData()
+      formData.append('file', entry.file)
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData })
+        const data = await res.json()
+        if (res.ok && (data.url || data.mediaUrl)) {
+          const url = data.url ?? data.mediaUrl
+          setPendingFiles(prev => prev.map(p =>
+            p.file === entry.file ? { ...p, uploading: false, url } : p
+          ))
+        } else {
+          setPendingFiles(prev => prev.map(p =>
+            p.file === entry.file ? { ...p, uploading: false, error: data.error ?? 'Error' } : p
+          ))
+        }
+      } catch {
+        setPendingFiles(prev => prev.map(p =>
+          p.file === entry.file ? { ...p, uploading: false, error: 'Error de red' } : p
+        ))
+      }
+    }
+  }
+
+  const removePendingFile = (idx: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== idx))
+  }
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim()) return
+    const readyAttachments = pendingFiles
+      .filter(p => p.url && !p.uploading && !p.error)
+      .map(p => ({ url: p.url!, name: p.file.name, mimeType: p.file.type || 'application/octet-stream' }))
+
+    if (!content.trim() && readyAttachments.length === 0) return
+    if (pendingFiles.some(p => p.uploading)) return
+
     setSending(true)
     try {
       const res = await fetch(`/api/tickets/${params.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, isInternal: isAdmin ? isInternal : false }),
+        body: JSON.stringify({
+          content,
+          isInternal: isAdmin ? isInternal : false,
+          attachments: readyAttachments,
+        }),
       })
       const data = await res.json()
       if (res.ok && data.message) {
         setMessages(prev => [...prev, data.message])
         setContent('')
         setIsInternal(false)
+        setPendingFiles([])
       }
     } finally {
       setSending(false)
@@ -139,6 +218,31 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
       }
     } finally {
       setSavingNotes(false)
+    }
+  }
+
+  const deleteTicket = async () => {
+    if (!confirm('¿Eliminar este ticket y todos sus mensajes?')) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/tickets/${params.id}`, { method: 'DELETE' })
+      if (res.ok) router.push('/tickets')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const joinVoice = async () => {
+    setJoiningVoice(true); setVoiceError('')
+    try {
+      const res = await fetch(`/api/voice/token?room=${encodeURIComponent(roomId)}`)
+      if (!res.ok) throw new Error('Error al obtener token de voz')
+      const { token, serverUrl } = await res.json()
+      join(roomId, `Ticket: ${ticket?.subject ?? params.id}`, token, serverUrl)
+    } catch (err: any) {
+      setVoiceError(err.message)
+    } finally {
+      setJoiningVoice(false)
     }
   }
 
@@ -189,7 +293,7 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r" style={{ borderColor: '#00fff5' }} />
 
             <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div>
+              <div className="flex-1 min-w-0">
                 <h1 className="font-mono font-bold text-base mb-1" style={{ color: '#c8fff8' }}>{ticket.subject}</h1>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
@@ -212,28 +316,79 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                 </div>
               </div>
 
-              {/* Admin status change */}
-              {isAdmin && (
-                <div className="flex items-center gap-2">
-                  <select
-                    value={newStatus}
-                    onChange={e => setNewStatus(e.target.value)}
-                    className="dedsec-input px-2 py-1 text-xs outline-none font-mono"
-                  >
-                    <option value="open">Abierto</option>
-                    <option value="in_progress">En proceso</option>
-                    <option value="closed">Cerrado</option>
-                  </select>
+              {/* Actions: Voice + Admin controls */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Voice call button */}
+                {!inVoice ? (
                   <button
-                    onClick={updateStatus}
-                    disabled={newStatus === ticket.status}
-                    className="dedsec-btn px-3 py-1 text-xs font-mono"
+                    onClick={joinVoice}
+                    disabled={joiningVoice}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded font-mono text-xs transition-all"
+                    style={{
+                      background: '#00ff8815',
+                      border: '1px solid #00ff8840',
+                      color: '#00ff88',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#00ff8825')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '#00ff8815')}
+                    title="Unirse a sala de voz del ticket"
                   >
-                    Guardar
+                    <Phone className="w-3.5 h-3.5" />
+                    {joiningVoice ? 'CONECTANDO...' : 'VOZ'}
                   </button>
-                </div>
-              )}
+                ) : (
+                  <button
+                    onClick={leave}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded font-mono text-xs"
+                    style={{
+                      background: '#ff003c15',
+                      border: '1px solid #ff003c40',
+                      color: '#ff003c',
+                    }}
+                  >
+                    <PhoneOff className="w-3.5 h-3.5" />
+                    SALIR VOZ
+                  </button>
+                )}
+
+                {/* Admin: status change */}
+                {isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={newStatus}
+                      onChange={e => setNewStatus(e.target.value)}
+                      className="dedsec-input px-2 py-1 text-xs outline-none font-mono"
+                    >
+                      <option value="open">Abierto</option>
+                      <option value="in_progress">En proceso</option>
+                      <option value="closed">Cerrado</option>
+                    </select>
+                    <button
+                      onClick={updateStatus}
+                      disabled={newStatus === ticket.status}
+                      className="dedsec-btn px-3 py-1 text-xs font-mono"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={deleteTicket}
+                      disabled={deleting}
+                      className="p-1.5 rounded transition-colors"
+                      style={{ color: '#ff003c80', border: '1px solid #ff003c30' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#ff003c')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#ff003c80')}
+                      title="Eliminar ticket"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {voiceError && (
+              <p className="mt-2 font-mono text-xs" style={{ color: '#ff003c' }}>{voiceError}</p>
+            )}
           </div>
         </div>
 
@@ -264,19 +419,58 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             return (
               <div key={msg._id} className={`flex ${isSelf ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className="max-w-[75%] p-3 rounded"
+                  className="max-w-[80%] p-3 rounded space-y-2"
                   style={{
                     background: isSelf ? '#00fff530' : '#00fff510',
                     border: `1px solid ${isSelf ? '#00fff560' : '#00fff530'}`,
                   }}
                 >
                   {!isSelf && (
-                    <p className="text-xs font-mono font-semibold mb-1" style={{ color: '#00fff5' }}>
+                    <p className="text-xs font-mono font-semibold" style={{ color: '#00fff5' }}>
                       @{msg.sender?.username}
                     </p>
                   )}
-                  <p className="text-sm font-mono whitespace-pre-wrap" style={{ color: '#c8fff8' }}>{msg.content}</p>
-                  <p className="text-xs font-mono mt-1 text-right" style={{ color: '#00fff540' }}>
+                  {msg.content && (
+                    <p className="text-sm font-mono whitespace-pre-wrap" style={{ color: '#c8fff8' }}>{msg.content}</p>
+                  )}
+                  {/* Attachments */}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="space-y-1.5 mt-1">
+                      {msg.attachments.map((att, i) => (
+                        <div key={i}>
+                          {isImage(att.mimeType) ? (
+                            <a href={att.url} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={att.url}
+                                alt={att.name}
+                                className="max-w-full rounded"
+                                style={{ maxHeight: '200px', objectFit: 'contain' }}
+                              />
+                            </a>
+                          ) : isVideo(att.mimeType) ? (
+                            <video
+                              src={att.url}
+                              controls
+                              className="max-w-full rounded"
+                              style={{ maxHeight: '200px' }}
+                            />
+                          ) : (
+                            <a
+                              href={att.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-3 py-2 rounded font-mono text-xs transition-all"
+                              style={{ background: '#00fff510', border: '1px solid #00fff530', color: '#00fff5' }}
+                            >
+                              <Paperclip className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{att.name}</span>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs font-mono text-right" style={{ color: '#00fff540' }}>
                     {new Date(msg.createdAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
@@ -309,6 +503,36 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
           </div>
         )}
 
+        {/* Pending file uploads preview */}
+        {pendingFiles.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {pendingFiles.map((pf, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-2 px-2 py-1.5 rounded font-mono text-xs"
+                style={{ background: '#00fff510', border: '1px solid #00fff530' }}
+              >
+                {pf.uploading ? (
+                  <span style={{ color: '#00fff580' }}>⏳ {pf.file.name.slice(0, 20)}</span>
+                ) : pf.error ? (
+                  <span style={{ color: '#ff003c' }}>✕ {pf.file.name.slice(0, 20)}</span>
+                ) : (
+                  <span style={{ color: '#00ff88' }}>✓ {pf.file.name.slice(0, 20)}</span>
+                )}
+                <button
+                  onClick={() => removePendingFile(i)}
+                  className="ml-1"
+                  style={{ color: '#ff003c80' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#ff003c')}
+                  onMouseLeave={e => (e.currentTarget.style.color = '#ff003c80')}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Message Input */}
         <form onSubmit={sendMessage} className="space-y-2">
           {isAdmin && (
@@ -323,29 +547,54 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
             </label>
           )}
           <div className="flex gap-2">
+            {/* Attach button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-2 py-2 rounded transition-all shrink-0"
+              style={{ border: '1px solid #00fff530', color: '#00fff560' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#00fff5')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#00fff560')}
+              title="Adjuntar archivo"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              multiple
+              onChange={handleFileSelect}
+              accept="image/*,video/*,.pdf,.zip,.rar,.txt,.doc,.docx"
+            />
+
             <textarea
               value={content}
               onChange={e => setContent(e.target.value)}
-              placeholder={isInternal ? 'Nota interna...' : 'Escribe tu mensaje...'}
+              placeholder={isInternal ? 'Nota interna...' : 'Escribe tu mensaje o adjunta archivos...'}
               rows={2}
               className="dedsec-input flex-1 px-3 py-2 text-sm outline-none font-mono resize-none"
+              style={isInternal ? { borderColor: '#ff9500' } : {}}
               onKeyDown={e => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
-                  if (!sending && content.trim()) sendMessage(e as any)
+                  const hasContent = content.trim() || pendingFiles.some(p => p.url)
+                  if (!sending && hasContent && !pendingFiles.some(p => p.uploading)) sendMessage(e as any)
                 }
               }}
             />
             <button
               type="submit"
-              disabled={sending || !content.trim()}
+              disabled={sending || pendingFiles.some(p => p.uploading) || (!content.trim() && !pendingFiles.some(p => p.url))}
               className="dedsec-btn px-4 py-2 text-xs font-mono shrink-0"
               style={isInternal ? { borderColor: '#ff9500', color: '#ff9500' } : {}}
             >
               {sending ? '...' : '→'}
             </button>
           </div>
-          <p className="text-xs font-mono" style={{ color: '#00fff530' }}>Enter para enviar · Shift+Enter nueva línea</p>
+          <p className="text-xs font-mono" style={{ color: '#00fff530' }}>
+            Enter para enviar · Shift+Enter nueva línea · 📎 imágenes, videos, archivos
+          </p>
         </form>
       </div>
     </div>

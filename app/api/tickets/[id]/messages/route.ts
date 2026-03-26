@@ -48,16 +48,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: 'Acceso denegado' }, { status: 403 })
   }
 
-  const { content, isInternal } = await req.json()
-  if (!content?.trim()) return NextResponse.json({ error: 'Contenido vacío' }, { status: 400 })
+  const { content, isInternal, attachments } = await req.json()
+  if (!content?.trim() && (!attachments?.length)) {
+    return NextResponse.json({ error: 'Contenido vacío' }, { status: 400 })
+  }
 
   const internal = isAdmin ? (isInternal === true) : false
 
   const message = await TicketMessage.create({
     ticket: params.id,
     sender: uid,
-    content,
+    content: content?.trim() ?? '',
     isInternal: internal,
+    attachments: Array.isArray(attachments) ? attachments.slice(0, 5) : [],
   })
 
   const populated = await message.populate('sender', 'username avatar displayName')

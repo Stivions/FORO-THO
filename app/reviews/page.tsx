@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useCurrentUser } from '@/hooks/use-current-user'
+import { Trash2 } from 'lucide-react'
 
 interface ReviewUser {
   _id: string
@@ -60,12 +61,14 @@ function Stars({ rating, size = 'sm', interactive = false, onRate }: {
 
 export default function ReviewsPage() {
   const { user, sessionId } = useCurrentUser()
+  const isAdmin = (user as any)?.role === 'admin'
   const [reviews, setReviews]   = useState<Review[]>([])
   const [average, setAverage]   = useState(0)
   const [total, setTotal]       = useState(0)
   const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [myReview, setMyReview] = useState<Review | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Form state
   const [rating, setRating]     = useState(5)
@@ -92,6 +95,20 @@ export default function ReviewsPage() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [sessionId])
+
+  const deleteReview = async (id: string) => {
+    if (!confirm('¿Eliminar esta reseña?')) return
+    setDeletingId(id)
+    try {
+      const res = await fetch(`/api/reviews/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setReviews(prev => prev.filter(r => r._id !== id))
+        setTotal(t => t - 1)
+      }
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -280,9 +297,24 @@ export default function ReviewsPage() {
                 <Stars rating={r.rating} />
                 <h3 className="font-mono text-sm font-semibold mt-2 mb-1" style={{ color: '#ffaa00' }}>{r.title}</h3>
                 <p className="font-mono text-xs leading-relaxed" style={{ color: '#c8fff880' }}>{r.content}</p>
-                <p className="font-mono text-xs mt-3" style={{ color: '#ffaa0040' }}>
-                  {new Date(r.createdAt).toLocaleDateString('es-ES')}
-                </p>
+                <div className="flex items-center justify-between mt-3">
+                  <p className="font-mono text-xs" style={{ color: '#ffaa0040' }}>
+                    {new Date(r.createdAt).toLocaleDateString('es-ES')}
+                  </p>
+                  {isAdmin && (
+                    <button
+                      onClick={() => deleteReview(r._id)}
+                      disabled={deletingId === r._id}
+                      className="p-1 rounded transition-colors"
+                      style={{ color: '#ff003c50' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#ff003c')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#ff003c50')}
+                      title="Eliminar reseña"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
