@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useVoiceRoom } from '@/contexts/voice-room-context'
 import {
-  Volume2, Plus, Mic, Users, Settings, Trash2,
+  Volume2, Plus, Mic, MicOff, Users, Settings, Trash2,
   Check, X, UserX, ChevronDown, ChevronRight,
   Loader2, Edit2, LogIn,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-interface Participant { identity: string; name: string }
+interface Participant { identity: string; name: string; isMicMuted?: boolean }
 interface Channel {
   _id: string
   name: string
@@ -41,6 +41,7 @@ export function VoiceChannels() {
   const [editName,   setEditName]   = useState('')
   const [editDesc,   setEditDesc]   = useState('')
   const [kickingId,  setKickingId]  = useState<string | null>(null)
+  const [mutingId,   setMutingId]   = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
 
@@ -120,6 +121,27 @@ export function VoiceChannels() {
       }
     } finally {
       setSavingEdit(false)
+    }
+  }
+
+  // ── Mute participant ──
+  const handleMute = async (ch: Channel, identity: string, muted: boolean) => {
+    setMutingId(identity)
+    try {
+      const res = await fetch(`/api/voice/channels/${ch._id}/mute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity, muted }),
+      })
+      if (res.ok) {
+        setChannels(prev => prev.map(c =>
+          c._id === ch._id
+            ? { ...c, participants: c.participants.map(p => p.identity === identity ? { ...p, isMicMuted: muted } : p) }
+            : c
+        ))
+      }
+    } finally {
+      setMutingId(null)
     }
   }
 
@@ -381,19 +403,40 @@ export function VoiceChannels() {
                                 {p.name || p.identity}
                                 {p.identity === uid && <span style={{ color: '#00fff560' }}> (tú)</span>}
                               </span>
+                              {/* Mic indicator */}
+                              {p.isMicMuted
+                                ? <MicOff className="w-2.5 h-2.5 shrink-0" style={{ color: '#ff003c60' }} />
+                                : <Mic className="w-2.5 h-2.5 shrink-0" style={{ color: '#4ade8060' }} />
+                              }
                               {p.identity !== uid && (
-                                <button
-                                  onClick={() => handleKick(ch, p.identity)}
-                                  disabled={kickingId === p.identity}
-                                  title="Expulsar"
-                                  style={{ color: '#ff003c60' }}
-                                  onMouseEnter={e => (e.currentTarget.style.color = '#ff003c')}
-                                  onMouseLeave={e => (e.currentTarget.style.color = '#ff003c60')}
-                                >
-                                  {kickingId === p.identity
-                                    ? <Loader2 className="w-3 h-3 animate-spin" />
-                                    : <UserX className="w-3 h-3" />}
-                                </button>
+                                <>
+                                  {/* Mute/unmute button */}
+                                  <button
+                                    onClick={() => handleMute(ch, p.identity, !p.isMicMuted)}
+                                    disabled={mutingId === p.identity}
+                                    title={p.isMicMuted ? 'Activar micro' : 'Silenciar'}
+                                    style={{ color: p.isMicMuted ? '#4ade8060' : '#ff950060' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = p.isMicMuted ? '#4ade80' : '#ff9500')}
+                                    onMouseLeave={e => (e.currentTarget.style.color = p.isMicMuted ? '#4ade8060' : '#ff950060')}
+                                  >
+                                    {mutingId === p.identity
+                                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                                      : p.isMicMuted ? <Mic className="w-3 h-3" /> : <MicOff className="w-3 h-3" />}
+                                  </button>
+                                  {/* Kick button */}
+                                  <button
+                                    onClick={() => handleKick(ch, p.identity)}
+                                    disabled={kickingId === p.identity}
+                                    title="Expulsar"
+                                    style={{ color: '#ff003c60' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = '#ff003c')}
+                                    onMouseLeave={e => (e.currentTarget.style.color = '#ff003c60')}
+                                  >
+                                    {kickingId === p.identity
+                                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                                      : <UserX className="w-3 h-3" />}
+                                  </button>
+                                </>
                               )}
                             </div>
                           ))}

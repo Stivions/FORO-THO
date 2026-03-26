@@ -25,7 +25,15 @@ export async function GET() {
     channels.map(async (ch: any) => {
       try {
         const parts = await svc.listParticipants(ch.roomId)
-        return { ...ch, participantCount: parts.length, participants: parts.map(p => ({ identity: p.identity, name: p.name })) }
+        return {
+          ...ch,
+          participantCount: parts.length,
+          participants: parts.map((p: any) => ({
+            identity:   p.identity,
+            name:       p.name,
+            isMicMuted: p.tracks.find((t: any) => t.source === 2)?.muted ?? true,
+          })),
+        }
       } catch {
         return { ...ch, participantCount: 0, participants: [] }
       }

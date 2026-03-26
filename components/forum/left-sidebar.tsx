@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Star,
   Heart,
+  Image,
 } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useCategories, notifyCategories } from '@/hooks/use-categories'
@@ -38,6 +39,7 @@ const navItems = [
   { icon: Clock,        label: 'LATEST',   href: '/latest' },
   { icon: Users,        label: 'GRUPOS',   href: '/groups' },
   { icon: Crown,        label: 'VIP',      href: '/vip' },
+  { icon: Image,        label: 'GALERÍA',  href: '/products' },
   { icon: MessageSquare, label: 'TICKETS', href: '/tickets' },
   { icon: Star,         label: 'RESEÑAS',  href: '/reviews' },
   { icon: Heart,        label: 'DONAR',    href: '/donate' },
