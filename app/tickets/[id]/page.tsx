@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -61,7 +61,8 @@ function isVideo(mimeType: string) {
   return mimeType.startsWith('video/')
 }
 
-export default function TicketDetailPage({ params }: { params: { id: string } }) {
+export default function TicketDetailPage({ params: rawParams }: { params: any }) {
+  const params = rawParams instanceof Promise ? use(rawParams) : rawParams as { id: string }
   const { user, sessionId } = useCurrentUser()
   const router = useRouter()
   const { roomName: activeRoom, join, leave } = useVoiceRoom()

@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     })
 
     if (!pending) {
-      await User.findByIdAndUpdate(uid, { $inc: { postsCount: 1, points: 10 } })
+      await User.findByIdAndUpdate(uid, { $inc: { postsCount: 1, points: 2 } })
     }
 
     // Notify all admins about the pending post

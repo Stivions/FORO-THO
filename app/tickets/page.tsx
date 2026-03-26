@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/hooks/use-current-user'
 
 interface Ticket {
@@ -34,6 +35,7 @@ const PRIORITY_COLOR: Record<string, string> = {
 
 export default function TicketsPage() {
   const { user, sessionId } = useCurrentUser()
+  const router = useRouter()
   const [tickets, setTickets]     = useState<Ticket[]>([])
   const [loading, setLoading]     = useState(true)
   const [showForm, setShowForm]   = useState(false)
@@ -62,12 +64,8 @@ export default function TicketsPage() {
         body: JSON.stringify({ subject, category, message }),
       })
       const data = await res.json()
-      if (res.ok) {
-        setTickets(prev => [{ ...data.ticket, user: { username: (user as any)?.username, displayName: (user as any)?.displayName } }, ...prev])
-        setShowForm(false)
-        setSubject('')
-        setCategory('support')
-        setMessage('')
+      if (res.ok && data.ticket?._id) {
+        router.push(`/tickets/${data.ticket._id}`)
       }
     } finally {
       setSubmitting(false)

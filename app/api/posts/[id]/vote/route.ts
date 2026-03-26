@@ -32,7 +32,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       post.downvoters = post.downvoters.filter((u: any) => u.toString() !== uid)
       // Award points to post author for receiving an upvote
       if (post.author.toString() !== uid) {
-        User.findByIdAndUpdate(post.author, { $inc: { points: 5 } }).catch(() => {})
+        User.findByIdAndUpdate(post.author, { $inc: { points: 1 } }).catch(() => {})
       }
     }
   } else {

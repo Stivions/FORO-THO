@@ -16,6 +16,7 @@ import { PostCard } from './post-card'
 import { EditProfileModal, type ProfileData } from './edit-profile-modal'
 import { UserBadges } from './user-badges'
 import type { PostData } from './post-feed'
+import { getRank, getNextRank } from '@/lib/ranks'
 
 interface UserProfileProps {
   user: ProfileData & {
@@ -136,6 +137,54 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
               <p className="text-sm text-muted-foreground">@{user.username}</p>
               {user.bio && <p className="text-foreground mt-2 leading-relaxed">{user.bio}</p>}
             </div>
+
+            {/* Rank + Points */}
+            {(() => {
+              const pts   = (user as any).points ?? 0
+              const rank  = getRank(pts)
+              const next  = getNextRank(pts)
+              return (
+                <div className="flex items-center gap-3 flex-wrap py-1">
+                  {/* Rank badge */}
+                  <div
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono"
+                    style={{
+                      background: `${rank.glow}`,
+                      border: `1px solid ${rank.color}60`,
+                      color: rank.color,
+                      textShadow: `0 0 8px ${rank.glow}`,
+                      boxShadow: `0 0 12px ${rank.glow}`,
+                    }}
+                  >
+                    <span style={{ fontSize: '14px' }}>{rank.icon}</span>
+                    {rank.name}
+                  </div>
+                  {/* Points + progress */}
+                  <div className="flex-1 min-w-[140px] max-w-[220px]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-mono font-semibold" style={{ color: rank.color }}>
+                        {pts.toLocaleString()} pts
+                      </span>
+                      {next && (
+                        <span className="text-xs font-mono" style={{ color: '#88888880' }}>
+                          {next.needed} para {next.name}
+                        </span>
+                      )}
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#ffffff10' }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-700"
+                        style={{
+                          width: `${rank.progress}%`,
+                          background: `linear-gradient(90deg, ${rank.color}80, ${rank.color})`,
+                          boxShadow: `0 0 6px ${rank.color}60`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
               {user.location && (

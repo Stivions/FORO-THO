@@ -30,7 +30,7 @@ export async function POST(_req: Request, { params }: Ctx) {
     post.likers.push(uid)
     // Award points to post author for receiving a like
     if (post.author.toString() !== uid) {
-      User.findByIdAndUpdate(post.author, { $inc: { points: 2 } }).catch(() => {})
+      User.findByIdAndUpdate(post.author, { $inc: { points: 1 } }).catch(() => {})
     }
     // Notify post author — only one notification per user/post (no spam)
     if (post.author.toString() !== uid) {

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser, invalidateCurrentUser } from '@/hooks/use-current-user'
-import { Camera, Globe, MapPin, Twitter, Github, Instagram, MessageCircle, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Camera, Globe, MapPin, Loader2, Eye, EyeOff } from 'lucide-react'
 
 const TABS = ['PERFIL', 'CONTRASEÑA', 'CUENTA'] as const
 type Tab = typeof TABS[number]
@@ -20,10 +20,6 @@ export default function SettingsPage() {
     bio: '',
     location: '',
     website: '',
-    twitter: '',
-    github: '',
-    instagram: '',
-    discord: '',
     avatar: '',
     bannerUrl: '',
   })
@@ -48,10 +44,6 @@ export default function SettingsPage() {
         bio:         (user as any).bio         ?? '',
         location:    (user as any).location    ?? '',
         website:     (user as any).website     ?? '',
-        twitter:     (user as any).socialLinks?.twitter   ?? '',
-        github:      (user as any).socialLinks?.github    ?? '',
-        instagram:   (user as any).socialLinks?.instagram ?? '',
-        discord:     (user as any).socialLinks?.discord   ?? '',
         avatar:      (user as any).avatar    ?? '',
         bannerUrl:   (user as any).bannerUrl ?? '',
       })
@@ -101,12 +93,6 @@ export default function SettingsPage() {
           website:     form.website,
           avatar:      form.avatar,
           bannerUrl:   form.bannerUrl,
-          socialLinks: {
-            twitter:   form.twitter,
-            github:    form.github,
-            instagram: form.instagram,
-            discord:   form.discord,
-          },
         }),
       })
       if (res.ok) {
@@ -263,27 +249,6 @@ export default function SettingsPage() {
                 <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> SITIO WEB</span>
               </label>
               <input value={form.website} onChange={set('website')} maxLength={100} placeholder="https://tusitio.com" className={inputCls} />
-            </div>
-
-            {/* Social Links */}
-            <div className="space-y-3">
-              <label className={labelCls} style={{ color: '#00fff560' }}>REDES SOCIALES</label>
-              <div className="flex items-center gap-2">
-                <Twitter className="w-4 h-4 shrink-0" style={{ color: '#1d9bf0' }} />
-                <input value={form.twitter} onChange={set('twitter')} maxLength={50} placeholder="@usuario de Twitter/X" className={inputCls} />
-              </div>
-              <div className="flex items-center gap-2">
-                <Github className="w-4 h-4 shrink-0" style={{ color: '#c8fff8' }} />
-                <input value={form.github} onChange={set('github')} maxLength={50} placeholder="usuario de GitHub" className={inputCls} />
-              </div>
-              <div className="flex items-center gap-2">
-                <Instagram className="w-4 h-4 shrink-0" style={{ color: '#e1306c' }} />
-                <input value={form.instagram} onChange={set('instagram')} maxLength={50} placeholder="@usuario de Instagram" className={inputCls} />
-              </div>
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 shrink-0" style={{ color: '#5865F2' }} />
-                <input value={form.discord} onChange={set('discord')} maxLength={100} placeholder="usuario#0000 o enlace de servidor" className={inputCls} />
-              </div>
             </div>
 
             {profileMsg && (

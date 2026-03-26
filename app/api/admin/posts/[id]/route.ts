@@ -32,7 +32,7 @@ export async function PATCH(
 
   // If approved, update author post count and award points
   if (action === 'approve') {
-    await User.findByIdAndUpdate(post.author, { $inc: { postsCount: 1, points: 10 } })
+    await User.findByIdAndUpdate(post.author, { $inc: { postsCount: 1, points: 2 } })
   }
 
   // Notify the author
