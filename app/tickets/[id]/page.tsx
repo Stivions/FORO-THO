@@ -310,12 +310,39 @@ export default function TicketDetailPage() {
                   </span>
                   <span className="text-xs font-mono" style={{ color: '#00fff540' }}>{ticket.priority.toUpperCase()}</span>
                   <span className="text-xs font-mono" style={{ color: '#00fff540' }}>{ticket.category}</span>
-                  {isAdmin && (
-                    <span className="text-xs font-mono" style={{ color: '#00fff540' }}>
-                      · @{ticket.user.username}
-                    </span>
-                  )}
+                  <span className="text-xs font-mono" style={{ color: '#00fff530' }}>·</span>
+                  <span className="text-xs font-mono" style={{ color: '#00fff550' }}>
+                    {new Date(ticket.createdAt).toLocaleDateString('es-ES')}
+                  </span>
                 </div>
+                {/* Ticket owner — visible to everyone, links to profile */}
+                <Link
+                  href={`/profile/${ticket.user._id}`}
+                  className="inline-flex items-center gap-2 mt-2 group"
+                >
+                  <div
+                    className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center font-mono text-xs font-bold shrink-0"
+                    style={{
+                      background: ticket.user.avatar ? undefined : '#00fff520',
+                      color: '#00fff5',
+                      border: '1px solid #00fff530',
+                      backgroundImage: ticket.user.avatar ? `url(${ticket.user.avatar})` : undefined,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  >
+                    {!ticket.user.avatar && (ticket.user.username ?? 'U').slice(0, 1).toUpperCase()}
+                  </div>
+                  <span
+                    className="font-mono text-xs transition-colors"
+                    style={{ color: '#00fff560' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#00fff5')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '#00fff560')}
+                  >
+                    {ticket.user.displayName || ticket.user.username}
+                    <span style={{ color: '#00fff530' }}> @{ticket.user.username}</span>
+                  </span>
+                </Link>
               </div>
 
               {/* Actions: Voice + Admin controls */}
@@ -427,10 +454,16 @@ export default function TicketDetailPage() {
                     border: `1px solid ${isSelf ? '#00fff560' : '#00fff530'}`,
                   }}
                 >
-                  {!isSelf && (
-                    <p className="text-xs font-mono font-semibold" style={{ color: '#00fff5' }}>
-                      @{msg.sender?.username}
-                    </p>
+                  {!isSelf && msg.sender && (
+                    <Link
+                      href={`/profile/${msg.sender._id}`}
+                      className="text-xs font-mono font-semibold transition-colors block"
+                      style={{ color: '#00fff5' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#00ffaa')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#00fff5')}
+                    >
+                      @{msg.sender.username}
+                    </Link>
                   )}
                   {msg.content && (
                     <p className="text-sm font-mono whitespace-pre-wrap" style={{ color: '#c8fff8' }}>{msg.content}</p>
