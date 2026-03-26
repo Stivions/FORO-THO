@@ -7,6 +7,7 @@ export interface IProduct extends Document {
   mimeType: string
   thumbnailUrl?: string
   uploadedBy: mongoose.Types.ObjectId
+  likers: mongoose.Types.ObjectId[]
   createdAt: Date
   updatedAt: Date
 }
@@ -19,6 +20,7 @@ const ProductSchema = new Schema<IProduct>(
     mimeType:     { type: String, default: 'image/jpeg' },
     thumbnailUrl: { type: String, default: '' },
     uploadedBy:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    likers:       [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 )

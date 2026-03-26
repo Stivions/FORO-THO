@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/hooks/use-current-user'
-import { Plus, Trash2, Upload, X, Play, Image as ImageIcon, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Upload, X, Play, Loader2, Heart, ShoppingCart } from 'lucide-react'
 
 interface Product {
   _id: string
@@ -13,6 +14,8 @@ interface Product {
   mimeType: string
   thumbnailUrl?: string
   createdAt: string
+  likesCount: number
+  liked: boolean
 }
 
 function isVideo(mimeType: string) {
@@ -21,6 +24,7 @@ function isVideo(mimeType: string) {
 
 export default function ProductsPage() {
   const { user, sessionId } = useCurrentUser()
+  const router = useRouter()
   const isAdmin = (user as any)?.role === 'admin'
 
   const [products, setProducts]     = useState<Product[]>([])
@@ -38,6 +42,10 @@ export default function ProductsPage() {
   const [uploadErr, setUploadErr]   = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Like / request state
+  const [likingId, setLikingId]         = useState<string | null>(null)
+  const [requestingId, setRequestingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/products')
@@ -79,7 +87,7 @@ export default function ProductsPage() {
       })
       const data = await res.json()
       if (res.ok) {
-        setProducts(prev => [data.product, ...prev])
+        setProducts(prev => [{ ...data.product, likesCount: 0, liked: false }, ...prev])
         setTitle(''); setDesc(''); setMediaUrl(''); setMimeType('image/jpeg')
         setShowUpload(false)
       } else {
@@ -101,6 +109,51 @@ export default function ProductsPage() {
     }
   }
 
+  const handleLike = async (e: React.MouseEvent, product: Product) => {
+    e.stopPropagation()
+    if (!sessionId) { router.push('/login'); return }
+    if (likingId === product._id) return
+    setLikingId(product._id)
+    try {
+      const res = await fetch(`/api/products/${product._id}/like`, { method: 'POST' })
+      if (res.ok) {
+        const data = await res.json()
+        setProducts(prev => prev.map(p =>
+          p._id === product._id ? { ...p, liked: data.liked, likesCount: data.count } : p
+        ))
+        if (lightbox?._id === product._id) {
+          setLightbox(prev => prev ? { ...prev, liked: data.liked, likesCount: data.count } : prev)
+        }
+      }
+    } finally {
+      setLikingId(null)
+    }
+  }
+
+  const handleRequest = async (e: React.MouseEvent, product: Product) => {
+    e.stopPropagation()
+    if (!sessionId) { router.push('/login'); return }
+    if (requestingId === product._id) return
+    setRequestingId(product._id)
+    try {
+      const res = await fetch('/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: `Interés en: ${product.title}`,
+          category: 'support',
+          message: `Hola, estoy interesado en el producto:\n\n🔹 ${product.title}${product.description ? `\n${product.description}` : ''}\n\nPor favor contáctenme con más información.`,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.ticket?._id) {
+        router.push(`/tickets/${data.ticket._id}`)
+      }
+    } finally {
+      setRequestingId(null)
+    }
+  }
+
   return (
     <div className="min-h-screen" style={{ background: '#0a0a14', color: '#c8fff8' }}>
       {/* Lightbox */}
@@ -118,15 +171,52 @@ export default function ProductsPage() {
           </button>
           <div className="max-w-5xl w-full px-4" onClick={e => e.stopPropagation()}>
             {isVideo(lightbox.mimeType) ? (
-              <video src={lightbox.mediaUrl} controls autoPlay className="w-full rounded-lg max-h-[80vh] object-contain" />
+              <video src={lightbox.mediaUrl} controls autoPlay className="w-full rounded-lg max-h-[70vh] object-contain" />
             ) : (
-              <img src={lightbox.mediaUrl} alt={lightbox.title} className="w-full rounded-lg max-h-[80vh] object-contain" />
+              <img src={lightbox.mediaUrl} alt={lightbox.title} className="w-full rounded-lg max-h-[70vh] object-contain" />
             )}
-            <div className="mt-3 text-center">
-              <h2 className="font-mono font-bold text-lg" style={{ color: '#00fff5' }}>{lightbox.title}</h2>
-              {lightbox.description && (
-                <p className="font-mono text-sm mt-1" style={{ color: '#c8fff880' }}>{lightbox.description}</p>
-              )}
+            <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex-1 min-w-0">
+                <h2 className="font-mono font-bold text-lg" style={{ color: '#00fff5' }}>{lightbox.title}</h2>
+                {lightbox.description && (
+                  <p className="font-mono text-sm mt-1" style={{ color: '#c8fff880' }}>{lightbox.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {/* Like in lightbox */}
+                <button
+                  onClick={e => handleLike(e, lightbox)}
+                  disabled={likingId === lightbox._id}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded font-mono text-xs transition-all"
+                  style={{
+                    background: lightbox.liked ? '#ff003c20' : '#ffffff10',
+                    border: `1px solid ${lightbox.liked ? '#ff003c60' : '#ffffff20'}`,
+                    color: lightbox.liked ? '#ff003c' : '#ffffff80',
+                  }}
+                >
+                  <Heart className="w-3.5 h-3.5" fill={lightbox.liked ? 'currentColor' : 'none'} />
+                  {lightbox.likesCount}
+                </button>
+                {/* Request in lightbox */}
+                <button
+                  onClick={e => handleRequest(e, lightbox)}
+                  disabled={requestingId === lightbox._id}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded font-mono text-xs transition-all"
+                  style={{
+                    background: '#00fff515',
+                    border: '1px solid #00fff540',
+                    color: '#00fff5',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#00fff525')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#00fff515')}
+                >
+                  {requestingId === lightbox._id
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <ShoppingCart className="w-3.5 h-3.5" />
+                  }
+                  {requestingId === lightbox._id ? 'ABRIENDO...' : 'SOLICITAR'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -153,7 +243,7 @@ export default function ProductsPage() {
               className="flex items-center gap-2 dedsec-btn px-3 py-1.5 text-xs font-mono"
             >
               {showUpload ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-              {showUpload ? 'CANCELAR' : 'SUBIR MEDIA'}
+              {showUpload ? 'CANCELAR' : '+ SUBIR MEDIA'}
             </button>
           )}
         </div>
@@ -165,13 +255,10 @@ export default function ProductsPage() {
             <div className="absolute top-0 right-0 w-3 h-3 border-t border-r" style={{ borderColor: '#00fff5' }} />
             <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l" style={{ borderColor: '#00fff5' }} />
             <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r" style={{ borderColor: '#00fff5' }} />
-
             <h2 className="font-mono text-sm font-semibold mb-4 tracking-widest" style={{ color: '#00fff5' }}>
               {'// SUBIR IMAGEN / VIDEO'}
             </h2>
-
             <form onSubmit={handleSave} className="space-y-4">
-              {/* File upload area */}
               <div>
                 <label className="block font-mono text-xs mb-2 tracking-widest" style={{ color: '#00fff560' }}>
                   ARCHIVO (imagen o video)
@@ -192,12 +279,8 @@ export default function ProductsPage() {
                     ) : (
                       <div className="flex flex-col items-center gap-2">
                         <Upload className="w-8 h-8" style={{ color: '#00fff540' }} />
-                        <p className="font-mono text-xs" style={{ color: '#00fff560' }}>
-                          Haz click o arrastra una imagen o video
-                        </p>
-                        <p className="font-mono text-xs" style={{ color: '#00fff530' }}>
-                          JPG, PNG, GIF, MP4, MOV, WEBM · max 500MB
-                        </p>
+                        <p className="font-mono text-xs" style={{ color: '#00fff560' }}>Haz click o arrastra una imagen o video</p>
+                        <p className="font-mono text-xs" style={{ color: '#00fff530' }}>JPG, PNG, GIF, MP4, MOV · max 200MB</p>
                       </div>
                     )}
                   </div>
@@ -218,44 +301,25 @@ export default function ProductsPage() {
                     </button>
                   </div>
                 )}
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
+                <input ref={fileRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileUpload} />
               </div>
-
               <div>
                 <label className="block font-mono text-xs mb-1 tracking-widest" style={{ color: '#00fff560' }}>TÍTULO *</label>
                 <input
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  maxLength={80}
-                  placeholder="Título del producto o contenido..."
-                  className="dedsec-input w-full px-3 py-2 text-sm outline-none font-mono"
-                  required
+                  value={title} onChange={e => setTitle(e.target.value)} maxLength={80}
+                  placeholder="Título del producto..." className="dedsec-input w-full px-3 py-2 text-sm outline-none font-mono" required
                 />
               </div>
-
               <div>
                 <label className="block font-mono text-xs mb-1 tracking-widest" style={{ color: '#00fff560' }}>DESCRIPCIÓN</label>
                 <textarea
-                  value={desc}
-                  onChange={e => setDesc(e.target.value)}
-                  maxLength={300}
-                  rows={2}
-                  placeholder="Descripción opcional..."
-                  className="dedsec-input w-full px-3 py-2 text-sm outline-none font-mono resize-none"
+                  value={desc} onChange={e => setDesc(e.target.value)} maxLength={300} rows={2}
+                  placeholder="Descripción opcional..." className="dedsec-input w-full px-3 py-2 text-sm outline-none font-mono resize-none"
                 />
               </div>
-
               {uploadErr && <p className="font-mono text-xs" style={{ color: '#ff003c' }}>{uploadErr}</p>}
-
               <button
-                type="submit"
-                disabled={saving || uploading || !mediaUrl || !title.trim()}
+                type="submit" disabled={saving || uploading || !mediaUrl || !title.trim()}
                 className="dedsec-btn w-full py-2.5 font-mono text-sm"
               >
                 {saving ? '> GUARDANDO...' : '> PUBLICAR EN GALERÍA'}
@@ -266,36 +330,28 @@ export default function ProductsPage() {
 
         {/* Products grid */}
         {loading ? (
-          <div className="text-center py-20 font-mono text-sm" style={{ color: '#00fff530' }}>
-            {'> cargando...'}
-          </div>
+          <div className="text-center py-20 font-mono text-sm" style={{ color: '#00fff530' }}>{'> cargando...'}</div>
         ) : products.length === 0 ? (
           <div className="text-center py-20 space-y-2">
             <p className="font-mono text-2xl" style={{ color: '#00fff520' }}>{'{ }'}</p>
             <p className="font-mono text-sm" style={{ color: '#00fff540' }}>{'> galería vacía'}</p>
-            {isAdmin && (
-              <p className="font-mono text-xs" style={{ color: '#00fff530' }}>Usa el botón SUBIR MEDIA para agregar contenido</p>
-            )}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {products.map(p => (
               <div
                 key={p._id}
-                className="relative group rounded overflow-hidden cursor-pointer"
+                className="relative group rounded overflow-hidden"
                 style={{ background: '#00fff508', border: '1px solid #00fff520' }}
-                onClick={() => setLightbox(p)}
               >
-                {/* Media thumbnail */}
-                <div className="relative aspect-video bg-black overflow-hidden">
+                {/* Media thumbnail — clickable for lightbox */}
+                <div
+                  className="relative aspect-video bg-black overflow-hidden cursor-pointer"
+                  onClick={() => setLightbox(p)}
+                >
                   {isVideo(p.mimeType) ? (
                     <>
-                      <video
-                        src={p.mediaUrl}
-                        className="w-full h-full object-cover"
-                        muted
-                        preload="metadata"
-                      />
+                      <video src={p.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
                       <div className="absolute inset-0 flex items-center justify-center bg-black/40 group-hover:bg-black/20 transition-colors">
                         <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: '#00fff520', border: '2px solid #00fff560' }}>
                           <Play className="w-5 h-5 ml-0.5" style={{ color: '#00fff5' }} />
@@ -303,24 +359,16 @@ export default function ProductsPage() {
                       </div>
                     </>
                   ) : (
-                    <img
-                      src={p.mediaUrl}
-                      alt={p.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                    <img src={p.mediaUrl} alt={p.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   )}
 
-                  {/* Video badge */}
                   {isVideo(p.mimeType) && (
-                    <span
-                      className="absolute top-2 left-2 font-mono text-[9px] px-1.5 py-0.5 rounded"
-                      style={{ background: '#00fff530', color: '#00fff5', border: '1px solid #00fff540' }}
-                    >
+                    <span className="absolute top-2 left-2 font-mono text-[9px] px-1.5 py-0.5 rounded"
+                      style={{ background: '#00fff530', color: '#00fff5', border: '1px solid #00fff540' }}>
                       VIDEO
                     </span>
                   )}
 
-                  {/* Admin delete overlay */}
                   {isAdmin && (
                     <button
                       onClick={e => { e.stopPropagation(); handleDelete(p._id) }}
@@ -329,22 +377,61 @@ export default function ProductsPage() {
                       style={{ background: '#ff003c', color: '#fff' }}
                       title="Eliminar"
                     >
-                      {deletingId === p._id
-                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        : <Trash2 className="w-3.5 h-3.5" />}
+                      {deletingId === p._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                     </button>
                   )}
                 </div>
 
-                {/* Info */}
+                {/* Info + actions */}
                 <div className="p-3">
-                  <h3 className="font-mono text-sm font-semibold truncate" style={{ color: '#c8fff8' }}>{p.title}</h3>
+                  <h3 className="font-mono text-sm font-semibold truncate mb-0.5" style={{ color: '#c8fff8' }}>{p.title}</h3>
                   {p.description && (
-                    <p className="font-mono text-xs mt-0.5 line-clamp-2" style={{ color: '#c8fff860' }}>{p.description}</p>
+                    <p className="font-mono text-xs line-clamp-2 mb-2" style={{ color: '#c8fff860' }}>{p.description}</p>
                   )}
-                  <p className="font-mono text-xs mt-2" style={{ color: '#00fff530' }}>
-                    {new Date(p.createdAt).toLocaleDateString('es-ES')}
-                  </p>
+
+                  {/* Like + Solicitar row */}
+                  <div className="flex items-center gap-2 mt-2">
+                    {/* Like button */}
+                    <button
+                      onClick={e => handleLike(e, p)}
+                      disabled={likingId === p._id}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded font-mono text-xs transition-all"
+                      style={{
+                        background: p.liked ? '#ff003c15' : 'transparent',
+                        border: `1px solid ${p.liked ? '#ff003c50' : '#00fff520'}`,
+                        color: p.liked ? '#ff003c' : '#00fff540',
+                      }}
+                      onMouseEnter={e => { if (!p.liked) e.currentTarget.style.borderColor = '#ff003c40'; e.currentTarget.style.color = p.liked ? '#ff003c' : '#ff003c80' }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = p.liked ? '#ff003c50' : '#00fff520'; e.currentTarget.style.color = p.liked ? '#ff003c' : '#00fff540' }}
+                    >
+                      <Heart className="w-3 h-3" fill={p.liked ? 'currentColor' : 'none'} />
+                      <span>{p.likesCount}</span>
+                    </button>
+
+                    {/* Solicitar button */}
+                    <button
+                      onClick={e => handleRequest(e, p)}
+                      disabled={requestingId === p._id}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1 rounded font-mono text-xs transition-all"
+                      style={{
+                        background: '#00fff510',
+                        border: '1px solid #00fff530',
+                        color: '#00fff5',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#00fff520')}
+                      onMouseLeave={e => (e.currentTarget.style.background = '#00fff510')}
+                    >
+                      {requestingId === p._id
+                        ? <Loader2 className="w-3 h-3 animate-spin" />
+                        : <ShoppingCart className="w-3 h-3" />
+                      }
+                      {requestingId === p._id ? 'ABRIENDO...' : 'SOLICITAR'}
+                    </button>
+
+                    <p className="font-mono text-xs ml-auto" style={{ color: '#00fff530' }}>
+                      {new Date(p.createdAt).toLocaleDateString('es-ES')}
+                    </p>
+                  </div>
                 </div>
               </div>
             ))}
