@@ -25,6 +25,7 @@ import { useCategories, notifyCategories } from '@/hooks/use-categories'
 import { getIcon } from '@/lib/icon-map'
 import { CreateCategoryModal } from './create-category-modal'
 import { VoiceRoom } from './voice-room'
+import { VoiceChannels } from './voice-channels'
 
 interface LeftSidebarProps {
   onCreatePost: () => void
@@ -190,6 +191,9 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
               </div>
             )}
           </div>
+
+          {/* Voice Channels */}
+          <VoiceChannels />
         </nav>
 
         {/* User Profile Section */}
