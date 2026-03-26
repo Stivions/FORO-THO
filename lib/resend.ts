@@ -2,6 +2,89 @@ import { Resend } from 'resend'
 
 export const resend = new Resend(process.env.RESEND_API_KEY)
 
+export function buildVipReceiptEmail(username: string, expiresAt: Date): string {
+  const expStr = expiresAt.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>VIP Activado</title></head>
+<body style="margin:0;padding:0;background:#050810;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#050810;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:580px;background:#0a0f18;border:1px solid #ffaa0040;border-radius:4px;overflow:hidden;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#ffaa0015,#050810);padding:28px 32px;border-bottom:1px solid #ffaa0030;text-align:center;">
+            <div style="font-size:32px;margin-bottom:8px;">👑</div>
+            <span style="color:#ffaa00;font-size:22px;font-weight:900;letter-spacing:0.15em;text-shadow:0 0 14px #ffaa0050;">SKILL ALL SHOW</span>
+            <div style="color:#ffaa0060;font-size:10px;letter-spacing:0.2em;margin-top:4px;">MEMBRESÍA VIP ACTIVADA</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;color:#c8fff8;font-size:14px;line-height:1.8;">
+            <p style="margin:0 0 16px;">Hola <strong style="color:#ffaa00;">@${username}</strong>,</p>
+            <p style="margin:0 0 16px;">Tu membresía <strong style="color:#ffaa00;">VIP</strong> ha sido activada exitosamente. Ahora tienes acceso completo a todo el contenido exclusivo:</p>
+            <div style="background:#ffaa0010;border:1px solid #ffaa0030;border-radius:4px;padding:16px;margin:20px 0;">
+              <div style="color:#ffaa00;font-size:11px;letter-spacing:0.15em;margin-bottom:12px;">// ACCESOS VIP</div>
+              ${['CHAT VIP','MULTIMEDIA','HACK','PROGRAMAS','PROGRAMAS CRACKEADOS','TOOLS-SOURCES','CHEAT-SOURCES','WEB-CLONADAS','LEAKS','CUENTAS','ENTRETENIMIENTO','VOICE PRIVADOS'].map(c =>
+                `<div style="color:#c8fff8;font-size:12px;font-family:'Courier New',monospace;padding:3px 0;">▸ ${c}</div>`
+              ).join('')}
+            </div>
+            <p style="margin:16px 0 0;color:#c8fff880;font-size:12px;">Tu VIP es válido hasta: <strong style="color:#ffaa00;">${expStr}</strong></p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 28px;text-align:center;">
+            <a href="${process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app'}"
+              style="display:inline-block;padding:12px 32px;background:transparent;border:1px solid #ffaa00;color:#ffaa00;text-decoration:none;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;font-weight:700;">
+              &gt; IR AL FORO
+            </a>
+          </td>
+        </tr>
+        <tr><td style="padding:16px 32px;text-align:center;border-top:1px solid #ffaa0020;">
+          <p style="margin:0;color:#ffaa0040;font-size:9px;letter-spacing:0.08em;">SKILL ALL SHOW &nbsp;·&nbsp; WE_ARE_DEDSEC</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
+export function buildVipAdminNotifEmail(username: string, email: string, method: string, amount: number, txHash?: string): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/><title>Nueva compra VIP</title></head>
+<body style="margin:0;padding:0;background:#050810;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#050810;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:580px;background:#0a0f18;border:1px solid #00fff530;border-radius:4px;overflow:hidden;">
+        <tr>
+          <td style="background:#050810;padding:20px 32px;border-bottom:1px solid #00fff520;text-align:center;">
+            <span style="color:#00fff5;font-size:18px;font-weight:900;letter-spacing:0.15em;">SKILL ALL SHOW</span>
+            <div style="color:#00ff8860;font-size:10px;letter-spacing:0.2em;margin-top:4px;">💰 NUEVA COMPRA VIP</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px;color:#c8fff8;font-size:14px;line-height:1.8;">
+            <div style="color:#00fff540;font-size:10px;letter-spacing:0.15em;margin-bottom:16px;">&gt; DETALLES_TRANSACCION</div>
+            <table width="100%" style="border-collapse:collapse;">
+              <tr><td style="padding:6px 0;color:#00fff560;font-size:11px;width:120px;">USUARIO</td><td style="color:#c8fff8;font-size:13px;font-weight:700;">@${username}</td></tr>
+              <tr><td style="padding:6px 0;color:#00fff560;font-size:11px;">EMAIL</td><td style="color:#c8fff8;font-size:13px;">${email}</td></tr>
+              <tr><td style="padding:6px 0;color:#00fff560;font-size:11px;">MÉTODO</td><td style="color:#ffaa00;font-size:13px;font-weight:700;">${method.toUpperCase()}</td></tr>
+              <tr><td style="padding:6px 0;color:#00fff560;font-size:11px;">MONTO</td><td style="color:#00ff88;font-size:13px;font-weight:700;">$${amount} USD</td></tr>
+              ${txHash ? `<tr><td style="padding:6px 0;color:#00fff560;font-size:11px;">TX HASH</td><td style="color:#c8fff880;font-size:11px;word-break:break-all;">${txHash}</td></tr>` : ''}
+            </table>
+          </td>
+        </tr>
+        <tr><td style="padding:16px 32px;text-align:center;border-top:1px solid #00fff515;">
+          <p style="margin:0;color:#00fff530;font-size:9px;letter-spacing:0.08em;">SKILL ALL SHOW &nbsp;·&nbsp; PANEL ADMIN</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
 export interface AnnouncePayload {
   subject:    string
   headline:   string

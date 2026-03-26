@@ -12,3 +12,20 @@ export const CATEGORIES = [
 ] as const
 
 export type CategoryName = typeof CATEGORIES[number]['name']
+
+export const VIP_CATEGORIES = [
+  'CHAT VIP',
+  'MULTIMEDIA',
+  'HACK',
+  'PROGRAMAS',
+  'PROGRAMAS CRACKEADOS',
+  'TOOLS-SOURCES',
+  'CHEAT-SOURCES',
+  'WEB-CLONADAS',
+  'LEAKS',
+  'CUENTAS',
+  'ENTRETENIMIENTO',
+  'VOICE PRIVADOS',
+] as const
+
+export type VipCategory = typeof VIP_CATEGORIES[number]

@@ -27,6 +27,7 @@ import { getIcon } from '@/lib/icon-map'
 import { CreateCategoryModal } from './create-category-modal'
 import { VoiceRoom } from './voice-room'
 import { VoiceChannels } from './voice-channels'
+import { VIP_CATEGORIES } from '@/lib/categories'
 
 interface LeftSidebarProps {
   onCreatePost: () => void
@@ -193,6 +194,56 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
               </div>
             )}
           </div>
+
+          {/* VIP Zone */}
+          {(() => {
+            const isVip = (user as any)?.vip === true && (
+              !(user as any)?.vipExpiresAt || new Date((user as any).vipExpiresAt) > new Date()
+            )
+            const canSeeVip = isVip || isAdmin
+            return (
+              <div className="mt-5">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 mb-1" style={{ borderBottom: '1px solid #ffaa0020' }}>
+                  <Crown className="w-3 h-3" style={{ color: '#ffaa00' }} />
+                  <span className="text-xs font-mono font-semibold uppercase tracking-widest" style={{ color: '#ffaa0080', letterSpacing: '0.15em' }}>
+                    // ZONA VIP
+                  </span>
+                  {!canSeeVip && (
+                    <Link href="/vip" className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded transition-all"
+                      style={{ background: '#ffaa0015', color: '#ffaa0080', border: '1px solid #ffaa0030' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#ffaa00')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#ffaa0080')}
+                    >
+                      ACTIVAR VIP
+                    </Link>
+                  )}
+                </div>
+                <div className="space-y-0.5 mt-1">
+                  {VIP_CATEGORIES.map(cat => (
+                    canSeeVip ? (
+                      <Link
+                        key={cat}
+                        href={`/?category=${encodeURIComponent(cat)}`}
+                        className="ds-nav-item flex items-center gap-2.5 px-3 py-1.5 rounded text-xs text-muted-foreground"
+                      >
+                        <Crown className="w-3 h-3 shrink-0" style={{ color: '#ffaa0060' }} />
+                        <span className="font-mono truncate" style={{ letterSpacing: '0.04em', color: '#ffaa00a0' }}>{cat}</span>
+                      </Link>
+                    ) : (
+                      <div
+                        key={cat}
+                        className="flex items-center gap-2.5 px-3 py-1.5 rounded text-xs cursor-not-allowed"
+                        title="Requiere VIP"
+                      >
+                        <Crown className="w-3 h-3 shrink-0" style={{ color: '#ffaa0030' }} />
+                        <span className="font-mono truncate" style={{ letterSpacing: '0.04em', color: '#ffaa0030' }}>{cat}</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Voice Channels */}
           <VoiceChannels />

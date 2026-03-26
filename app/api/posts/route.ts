@@ -7,6 +7,9 @@ import { User } from '@/models/User'
 import { Notification } from '@/models/Notification'
 import { extractMentions, triggerBotReply, notifyMentions } from '@/lib/thobot'
 import { analyzePost } from '@/lib/ai-analysis'
+import { VIP_CATEGORIES } from '@/lib/categories'
+
+const VIP_CATEGORY_SET = new Set(VIP_CATEGORIES as readonly string[])
 
 export async function GET(req: Request) {
   try {
@@ -126,6 +129,8 @@ export async function POST(req: Request) {
     const pending   = needsModeration(mediaUrl || '', mediaType || '', content.trim(), title.trim())
     const status    = pending ? 'pending' : 'published'
 
+    // Auto-lock posts in VIP categories
+    const isVipCategory = VIP_CATEGORY_SET.has(category)
     const post = await Post.create({
       title:    title.trim(),
       content:  content.trim(),
@@ -135,7 +140,7 @@ export async function POST(req: Request) {
       mediaType: mediaType || '',
       author: uid,
       status,
-      vipOnly: isAdmin ? (vipOnly === true) : false,
+      vipOnly: isVipCategory ? true : (isAdmin ? (vipOnly === true) : false),
       ...(vtAnalysis ? { vtAnalysis } : {}),
     })
 

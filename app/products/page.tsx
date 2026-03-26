@@ -234,7 +234,7 @@ export default function ProductsPage() {
             </Link>
             <span style={{ color: '#00fff520' }}>|</span>
             <h1 className="font-mono font-bold tracking-widest" style={{ color: '#00fff5', letterSpacing: '0.2em' }}>
-              {'// GALERÍA / PRODUCTOS'}
+              {'// PRODUCTOS'}
             </h1>
           </div>
           {isAdmin && (
@@ -334,7 +334,7 @@ export default function ProductsPage() {
         ) : products.length === 0 ? (
           <div className="text-center py-20 space-y-2">
             <p className="font-mono text-2xl" style={{ color: '#00fff520' }}>{'{ }'}</p>
-            <p className="font-mono text-sm" style={{ color: '#00fff540' }}>{'> galería vacía'}</p>
+            <p className="font-mono text-sm" style={{ color: '#00fff540' }}>{'> no se han agregado productos todavía'}</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

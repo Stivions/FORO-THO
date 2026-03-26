@@ -43,6 +43,7 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
   )
   const [liked,     setLiked]     = useState((post as any).likers?.includes(uid) ?? false)
   const [likeCount, setLikeCount] = useState((post as any).likers?.length ?? 0)
+  const [pinned,    setPinned]    = useState(post.isPinned)
 
   const vote = async (dir: 'up' | 'down') => {
     if (!uid) return
@@ -73,6 +74,14 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
     if (!confirm('¿Eliminar este post?')) return
     const res = await fetch(`/api/posts/${post._id}`, { method: 'DELETE' })
     if (res.ok) onDelete?.(post._id)
+  }
+
+  const handlePin = async () => {
+    const res = await fetch(`/api/posts/${post._id}/pin`, { method: 'POST' })
+    if (res.ok) {
+      const data = await res.json()
+      setPinned(data.isPinned)
+    }
   }
 
   const handleShare = async () => {
@@ -187,7 +196,7 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
               <UserBadges badges={post.author.badges} size="sm" />
               <span style={{ color: '#00fff520' }}>·</span>
               <span className="text-xs font-mono" style={{ color: 'var(--muted-foreground)' }}>{timeAgo(post.createdAt)}</span>
-              {post.isPinned && <Pin className="h-3 w-3" style={{ color: '#00fff5' }} />}
+              {pinned && <Pin className="h-3 w-3" style={{ color: '#00fff5' }} />}
               {isAdmin && verdictStyle && (
                 <span
                   title={analysis.reason}
@@ -374,6 +383,16 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
                   align="end"
                   style={{ background: '#0a0a14', border: '1px solid #00fff520', minWidth: '140px' }}
                 >
+                  {isAdmin && (
+                    <DropdownMenuItem
+                      className="cursor-pointer text-xs font-mono"
+                      style={{ color: pinned ? '#ff9500' : '#00fff5' }}
+                      onClick={handlePin}
+                    >
+                      <Pin className="mr-2 h-3.5 w-3.5" />
+                      {pinned ? 'DESANCLAR' : 'ANCLAR'}
+                    </DropdownMenuItem>
+                  )}
                   {isOwner ? (
                     <DropdownMenuItem
                       className="cursor-pointer text-xs font-mono"
