@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Camera, X, Globe, MapPin, Twitter, Github, Instagram, Loader2 } from 'lucide-react'
+import { Camera, X, Globe, MapPin, Twitter, Github, Instagram, MessageCircle, Loader2 } from 'lucide-react'
 import { invalidateCurrentUser } from '@/hooks/use-current-user'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,7 +24,7 @@ export interface ProfileData {
   bio?: string
   location?: string
   website?: string
-  socialLinks?: { twitter?: string; github?: string; instagram?: string }
+  socialLinks?: { twitter?: string; github?: string; instagram?: string; discord?: string }
 }
 
 interface EditProfileModalProps {
@@ -57,6 +57,7 @@ export function EditProfileModal({ open, onClose, profile, onSaved }: EditProfil
     twitter:      profile.socialLinks?.twitter   ?? '',
     github:       profile.socialLinks?.github    ?? '',
     instagram:    profile.socialLinks?.instagram ?? '',
+    discord:      profile.socialLinks?.discord   ?? '',
     avatar:       profile.avatar    ?? '',
     bannerUrl:    profile.bannerUrl ?? '',
   })
@@ -118,6 +119,7 @@ export function EditProfileModal({ open, onClose, profile, onSaved }: EditProfil
             twitter:   form.twitter,
             github:    form.github,
             instagram: form.instagram,
+            discord:   form.discord,
           },
         }),
       })
@@ -242,6 +244,10 @@ export function EditProfileModal({ open, onClose, profile, onSaved }: EditProfil
             <div className="flex items-center gap-2">
               <Instagram className="h-4 w-4 text-pink-400 flex-shrink-0" />
               <Input value={form.instagram} onChange={set('instagram')} placeholder="@usuario" maxLength={50} />
+            </div>
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 flex-shrink-0" style={{ color: '#5865F2' }} />
+              <Input value={form.discord} onChange={set('discord')} placeholder="usuario#0000 o /invite/..." maxLength={100} />
             </div>
           </div>
 

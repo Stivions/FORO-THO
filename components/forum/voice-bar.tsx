@@ -11,7 +11,7 @@ import {
   VideoTrack,
   TrackToggle,
 } from '@livekit/components-react'
-import { Track } from 'livekit-client'
+import { Track, VideoPresets } from 'livekit-client'
 import { useVoiceRoom } from '@/contexts/voice-room-context'
 import { cn } from '@/lib/utils'
 import { playSound } from '@/lib/sounds'
@@ -367,6 +367,11 @@ export function VoiceBar() {
           audioPreset: { maxBitrate: 32000 },
           dtx: true,
           stopMicTrackOnMute: false,
+          videoEncoding: VideoPresets.h1080.encoding,
+          screenShareEncoding: VideoPresets.h1080.encoding,
+        },
+        videoCaptureDefaults: {
+          resolution: VideoPresets.h1080.resolution,
         },
       }}
     >

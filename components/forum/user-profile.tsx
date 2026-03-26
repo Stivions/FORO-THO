@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   CalendarDays, MessageSquare, Heart, Edit,
-  MapPin, Globe, Twitter, Github, Instagram, Loader2,
+  MapPin, Globe, Twitter, Github, Instagram, MessageCircle, Loader2,
 } from 'lucide-react'
 import { PostCard } from './post-card'
 import { EditProfileModal, type ProfileData } from './edit-profile-modal'
@@ -159,7 +159,7 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
               )}
             </div>
 
-            {(user.socialLinks?.twitter || user.socialLinks?.github || user.socialLinks?.instagram) && (
+            {(user.socialLinks?.twitter || user.socialLinks?.github || user.socialLinks?.instagram || user.socialLinks?.discord) && (
               <div className="flex gap-3">
                 {user.socialLinks?.twitter && (
                   <a href={`https://twitter.com/${user.socialLinks.twitter.replace('@', '')}`}
@@ -180,6 +180,18 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
                     target="_blank" rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-pink-400 transition-colors">
                     <Instagram className="h-4 w-4" />
+                  </a>
+                )}
+                {user.socialLinks?.discord && (
+                  <a
+                    href={user.socialLinks.discord.startsWith('http') ? user.socialLinks.discord : `https://discord.com/users/${user.socialLinks.discord}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-muted-foreground transition-colors"
+                    style={{ color: undefined }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#5865F2')}
+                    onMouseLeave={e => (e.currentTarget.style.color = '')}
+                  >
+                    <MessageCircle className="h-4 w-4" />
                   </a>
                 )}
               </div>

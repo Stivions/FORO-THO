@@ -15,6 +15,7 @@ export interface IUser {
     twitter?: string
     github?: string
     instagram?: string
+    discord?: string
   }
   role: 'user' | 'admin' | 'moderator'
   badges: string[]
@@ -48,6 +49,7 @@ const UserSchema = new Schema<IUser>(
       twitter:   { type: String, default: '' },
       github:    { type: String, default: '' },
       instagram: { type: String, default: '' },
+      discord:   { type: String, default: '' },
     },
     role:           { type: String, enum: ['user', 'admin', 'moderator'], default: 'user' },
     badges:         [{ type: String }],
