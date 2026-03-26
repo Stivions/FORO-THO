@@ -42,3 +42,22 @@ export async function captureOrder(orderId: string) {
   })
   return res.json()
 }
+
+export async function createDonationOrder(returnBase: string, amount: number) {
+  const token = await getToken()
+  const res = await fetch(`${BASE}/v2/checkout/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({
+      intent: 'CAPTURE',
+      purchase_units: [{ amount: { currency_code: 'USD', value: amount.toFixed(2) }, description: 'Donación - Skill All Show' }],
+      application_context: {
+        return_url: `${returnBase}/api/donations/capture`,
+        cancel_url: `${returnBase}/donate?cancelled=1`,
+        brand_name: 'Skill All Show',
+        user_action: 'PAY_NOW',
+      },
+    }),
+  })
+  return res.json()
+}

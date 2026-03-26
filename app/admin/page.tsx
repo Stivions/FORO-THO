@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BADGES, ALL_BADGE_IDS, type BadgeId } from '@/lib/badges'
-import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink, Gift, Wallet } from 'lucide-react'
+import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink, Gift, Wallet, MessageSquare } from 'lucide-react'
 
 interface AdminUser {
   _id: string
@@ -44,7 +44,7 @@ export default function AdminPage() {
   const [saving,        setSaving]        = useState<string | null>(null)
   const [actioningGroup, setActioningGroup] = useState<string | null>(null)
   const [edits,         setEdits]         = useState<Record<string, { role: string; badges: string[] }>>({})
-  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce' | 'posts' | 'giveaway'>('groups')
+  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce' | 'posts' | 'giveaway' | 'tickets'>('groups')
   const [pendingPosts,  setPendingPosts]  = useState<any[]>([])
   const [postsLoading,  setPostsLoading]  = useState(false)
   const [actioningPost, setActioningPost] = useState<string | null>(null)
@@ -75,6 +75,10 @@ export default function AdminPage() {
   const [giveawayForm,    setGiveawayForm]    = useState({
     title: '', description: '', prize: 'vip_1month', prizeDescription: 'Membresía VIP 1 mes', endsAt: '',
   })
+
+  // Tickets state
+  const [tickets,        setTickets]        = useState<any[]>([])
+  const [ticketsLoading, setTicketsLoading] = useState(false)
 
   const isAdmin      = (user as any)?.role === 'admin'
   const isSuperAdmin = (user as any)?.email === 'stevensanchezdev@gmail.com' && isAdmin
@@ -210,6 +214,17 @@ export default function AdminPage() {
       setPendingPayments(pr.payments ?? [])
     } finally {
       setPaymentsLoading(false)
+    }
+  }
+
+  const loadTickets = async () => {
+    setTicketsLoading(true)
+    try {
+      const res = await fetch('/api/tickets')
+      const data = await res.json()
+      setTickets(data.tickets ?? [])
+    } finally {
+      setTicketsLoading(false)
     }
   }
 
@@ -399,6 +414,18 @@ export default function AdminPage() {
           >
             <Gift className="h-4 w-4" />
             Sorteos
+          </button>
+          <button
+            onClick={() => { setTab('tickets'); loadTickets() }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'tickets' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Tickets
+            {tickets.filter(t => t.status === 'open').length > 0 && (
+              <span className="bg-cyan-500 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                {tickets.filter(t => t.status === 'open').length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -1043,6 +1070,62 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+          </div>
+        ) : tab === 'tickets' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {tickets.filter(t => t.status === 'open').length} abiertos · {tickets.length} total
+              </p>
+              <button onClick={loadTickets} className="text-xs font-mono" style={{ color: '#00fff560' }}>↻ Actualizar</button>
+            </div>
+            {ticketsLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : tickets.length === 0 ? (
+              <p className="text-center py-10 text-sm text-muted-foreground">No hay tickets todavía</p>
+            ) : (
+              <div className="space-y-2">
+                {tickets.map(t => {
+                  const statusColor =
+                    t.status === 'open' ? '#00fff5' :
+                    t.status === 'in_progress' ? '#ff9500' : '#555'
+                  const statusLabel =
+                    t.status === 'open' ? 'ABIERTO' :
+                    t.status === 'in_progress' ? 'EN PROCESO' : 'CERRADO'
+                  return (
+                    <div
+                      key={t._id}
+                      className="p-4 rounded"
+                      style={{ border: '1px solid #00fff515', background: '#00fff505' }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="font-semibold text-sm truncate">{t.subject}</span>
+                            <span className="text-xs font-mono px-2 py-0.5 rounded"
+                              style={{ color: statusColor, background: `${statusColor}15`, border: `1px solid ${statusColor}40` }}>
+                              {statusLabel}
+                            </span>
+                            <span className="text-xs font-mono" style={{ color: '#ffaa0080' }}>{t.priority?.toUpperCase()}</span>
+                            <span className="text-xs font-mono" style={{ color: '#00fff540' }}>{t.category}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            @{t.user?.username} · {t.user?.email ?? ''} · {new Date(t.createdAt).toLocaleDateString('es-ES')}
+                          </p>
+                        </div>
+                        <a
+                          href={`/tickets/${t._id}`}
+                          className="text-xs font-mono px-3 py-1.5 rounded shrink-0 transition-all"
+                          style={{ background: '#00fff510', border: '1px solid #00fff530', color: '#00fff5' }}
+                        >
+                          → VER
+                        </a>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         ) : null}
       </div>

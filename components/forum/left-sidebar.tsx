@@ -16,6 +16,9 @@ import {
   Trash2,
   Shield,
   Crown,
+  MessageSquare,
+  Star,
+  Heart,
 } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useCategories, notifyCategories } from '@/hooks/use-categories'
@@ -29,11 +32,14 @@ interface LeftSidebarProps {
 }
 
 const navItems = [
-  { icon: Home,       label: 'HOME',    href: '/' },
-  { icon: TrendingUp, label: 'POPULAR', href: '/popular' },
-  { icon: Clock,      label: 'LATEST',  href: '/latest' },
-  { icon: Users,      label: 'GRUPOS',  href: '/groups' },
-  { icon: Crown,      label: 'VIP',     href: '/vip' },
+  { icon: Home,         label: 'HOME',     href: '/' },
+  { icon: TrendingUp,   label: 'POPULAR',  href: '/popular' },
+  { icon: Clock,        label: 'LATEST',   href: '/latest' },
+  { icon: Users,        label: 'GRUPOS',   href: '/groups' },
+  { icon: Crown,        label: 'VIP',      href: '/vip' },
+  { icon: MessageSquare, label: 'TICKETS', href: '/tickets' },
+  { icon: Star,         label: 'RESEÑAS',  href: '/reviews' },
+  { icon: Heart,        label: 'DONAR',    href: '/donate' },
 ]
 
 export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {

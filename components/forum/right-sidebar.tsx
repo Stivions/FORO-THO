@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { TrendingUp, ArrowUp, Terminal, Gift } from 'lucide-react'
+import { TrendingUp, ArrowUp, Terminal, Gift, Heart } from 'lucide-react'
 
 interface TrendingPost { _id: string; title: string; upvoters: string[]; downvoters: string[] }
+interface RecentDonation { _id: string; displayName: string; amount: number; message: string; createdAt: string }
 interface ActiveGiveaway {
   _id: string
   title: string
@@ -29,6 +30,8 @@ export function RightSidebar({ className }: { className?: string }) {
   const [trending,   setTrending]   = useState<TrendingPost[]>([])
   const [giveaways,  setGiveaways]  = useState<ActiveGiveaway[]>([])
   const [entering,   setEntering]   = useState<string | null>(null)
+  const [donations,  setDonations]  = useState<RecentDonation[]>([])
+  const [donationTotal, setDonationTotal] = useState(0)
 
   useEffect(() => {
     fetch('/api/posts?limit=5&page=1')
@@ -45,6 +48,14 @@ export function RightSidebar({ className }: { className?: string }) {
     fetch('/api/giveaway')
       .then(r => r.json())
       .then(data => setGiveaways(data.giveaways ?? []))
+      .catch(() => {})
+
+    fetch('/api/donations')
+      .then(r => r.json())
+      .then(data => {
+        setDonations((data.donations ?? []).slice(0, 3))
+        setDonationTotal(data.total ?? 0)
+      })
       .catch(() => {})
   }, [])
 
@@ -215,6 +226,57 @@ export function RightSidebar({ className }: { className?: string }) {
             STATUS: ONLINE
           </p>
         </div>
+      </div>
+
+      {/* Donations Widget */}
+      <div
+        className="relative"
+        style={{
+          background: 'var(--card)',
+          border: '1px solid #ffaa0025',
+          borderRadius: '4px',
+          padding: '1rem',
+        }}
+      >
+        <div className="absolute top-0 left-0 w-3 h-3 border-t border-l" style={{ borderColor: '#ffaa00' }} />
+        <div className="absolute top-0 right-0 w-3 h-3 border-t border-r" style={{ borderColor: '#ffaa00' }} />
+        <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l" style={{ borderColor: '#ffaa00' }} />
+        <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r" style={{ borderColor: '#ffaa00' }} />
+
+        <div className="flex items-center gap-2 mb-3" style={{ borderBottom: '1px solid #ffaa0015', paddingBottom: '8px' }}>
+          <Heart className="w-3.5 h-3.5" style={{ color: '#ffaa00' }} />
+          <span className="text-xs font-mono font-semibold uppercase tracking-widest" style={{ color: '#ffaa00', letterSpacing: '0.15em' }}>
+            // DONACIONES
+          </span>
+        </div>
+
+        <div className="mb-3 text-center">
+          <p className="text-xs font-mono" style={{ color: '#ffaa0060' }}>TOTAL RECAUDADO</p>
+          <p className="font-mono font-bold text-lg" style={{ color: '#ffaa00', textShadow: '0 0 12px #ffaa0040' }}>
+            ${donationTotal.toFixed(2)}
+          </p>
+        </div>
+
+        {donations.length > 0 && (
+          <div className="space-y-2 mb-3">
+            {donations.map(d => (
+              <div key={d._id} className="flex items-center justify-between gap-2">
+                <span className="text-xs font-mono truncate" style={{ color: '#c8fff880' }}>{d.displayName}</span>
+                <span className="text-xs font-mono font-bold shrink-0" style={{ color: '#00ff88' }}>${d.amount}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <a
+          href="/donate"
+          className="block text-center text-xs font-mono py-1.5 rounded transition-all"
+          style={{ background: '#ffaa0015', border: '1px solid #ffaa0040', color: '#ffaa00', letterSpacing: '0.08em' }}
+          onMouseEnter={e => (e.currentTarget.style.background = '#ffaa0025')}
+          onMouseLeave={e => (e.currentTarget.style.background = '#ffaa0015')}
+        >
+          ♥ APOYAR COMUNIDAD
+        </a>
       </div>
     </aside>
   )
