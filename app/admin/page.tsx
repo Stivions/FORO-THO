@@ -76,6 +76,10 @@ export default function AdminPage() {
     title: '', description: '', prize: 'vip_1month', prizeDescription: 'Membresía VIP 1 mes', endsAt: '',
   })
 
+  // Crypto donations state
+  const [cryptoDonations, setCryptoDonations] = useState<any[]>([])
+  const [donationsLoading, setDonationsLoading] = useState(false)
+
   // Tickets state
   const [tickets,        setTickets]        = useState<any[]>([])
   const [ticketsLoading, setTicketsLoading] = useState(false)
@@ -214,6 +218,32 @@ export default function AdminPage() {
       setPendingPayments(pr.payments ?? [])
     } finally {
       setPaymentsLoading(false)
+    }
+  }
+
+  const loadCryptoDonations = async () => {
+    setDonationsLoading(true)
+    try {
+      const res = await fetch('/api/admin/donations')
+      const data = await res.json()
+      setCryptoDonations(data.donations ?? [])
+    } finally {
+      setDonationsLoading(false)
+    }
+  }
+
+  const handleDonationAction = async (donationId: string, action: 'approve' | 'reject') => {
+    try {
+      const res = await fetch('/api/admin/donations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ donationId, action }),
+      })
+      if (res.ok) {
+        setCryptoDonations(prev => prev.filter(d => d._id !== donationId))
+      }
+    } catch {
+      alert('Error al procesar donación')
     }
   }
 
@@ -409,7 +439,7 @@ export default function AdminPage() {
             Anuncios
           </button>
           <button
-            onClick={() => { setTab('giveaway'); loadGiveaways() }}
+            onClick={() => { setTab('giveaway'); loadGiveaways(); loadCryptoDonations() }}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'giveaway' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             <Gift className="h-4 w-4" />
@@ -1064,6 +1094,64 @@ export default function AdminPage() {
                             ✕ Rechazar
                           </button>
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Crypto Donations */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-mono font-semibold uppercase tracking-widest flex items-center gap-2" style={{ color: '#ffaa00' }}>
+                  <Wallet className="h-4 w-4" />{'// DONACIONES CRIPTO'}
+                </h2>
+                <button onClick={loadCryptoDonations} className="text-xs font-mono" style={{ color: '#00fff560' }}>↻ Actualizar</button>
+              </div>
+              {donationsLoading ? (
+                <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+              ) : cryptoDonations.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No hay donaciones cripto</p>
+              ) : (
+                <div className="space-y-3">
+                  {cryptoDonations.map(d => (
+                    <div key={d._id} className="p-4 rounded" style={{ border: '1px solid #ffaa0030', background: '#ffaa0008' }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium" style={{ color: '#c8fff8' }}>
+                            {d.user ? `@${d.user.username}` : d.displayName || 'Anónimo'}
+                            {d.user?.email && <span className="text-xs text-muted-foreground ml-2">{d.user.email}</span>}
+                          </p>
+                          <p className="text-xs font-mono mt-1" style={{ color: '#ffaa00' }}>
+                            {d.cryptoCurrency} · ${d.amount} USD
+                          </p>
+                          <p className="text-xs font-mono mt-0.5 truncate" style={{ color: '#ffaa0080' }} title={d.cryptoTxHash}>
+                            TX: {d.cryptoTxHash?.slice(0, 40)}{d.cryptoTxHash?.length > 40 ? '...' : ''}
+                          </p>
+                          {d.message && <p className="text-xs text-muted-foreground mt-0.5 italic">"{d.message}"</p>}
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {new Date(d.createdAt).toLocaleString('es-ES')} · Estado: {d.status}
+                          </p>
+                        </div>
+                        {d.status === 'pending' && (
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <button
+                              onClick={() => handleDonationAction(d._id, 'approve')}
+                              className="text-xs px-3 py-1.5 rounded font-mono"
+                              style={{ background: '#00ff8820', border: '1px solid #00ff8850', color: '#00ff88', cursor: 'pointer' }}
+                            >
+                              ✓ Confirmar
+                            </button>
+                            <button
+                              onClick={() => handleDonationAction(d._id, 'reject')}
+                              className="text-xs px-3 py-1.5 rounded font-mono"
+                              style={{ background: '#ff003c10', border: '1px solid #ff003c40', color: '#ff003c', cursor: 'pointer' }}
+                            >
+                              ✕ Rechazar
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

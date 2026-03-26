@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, use } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useVoiceRoom } from '@/contexts/voice-room-context'
 import { Mic, MicOff, PhoneOff, Paperclip, X, Trash2, Phone } from 'lucide-react'
@@ -61,8 +61,9 @@ function isVideo(mimeType: string) {
   return mimeType.startsWith('video/')
 }
 
-export default function TicketDetailPage({ params: rawParams }: { params: any }) {
-  const params = rawParams instanceof Promise ? use(rawParams) : rawParams as { id: string }
+export default function TicketDetailPage() {
+  const routeParams = useParams()
+  const ticketId = routeParams.id as string
   const { user, sessionId } = useCurrentUser()
   const router = useRouter()
   const { roomName: activeRoom, join, leave } = useVoiceRoom()
@@ -85,7 +86,7 @@ export default function TicketDetailPage({ params: rawParams }: { params: any })
   // Voice
   const [joiningVoice, setJoiningVoice] = useState(false)
   const [voiceError, setVoiceError]     = useState('')
-  const roomId    = ticket?.roomId ?? `ticket-${params.id}`
+  const roomId    = ticket?.roomId ?? `ticket-${ticketId}`
   const inVoice   = activeRoom === roomId
 
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -95,17 +96,17 @@ export default function TicketDetailPage({ params: rawParams }: { params: any })
   const fetchMessages = useCallback(async () => {
     if (!uid) return
     try {
-      const r = await fetch(`/api/tickets/${params.id}/messages`)
+      const r = await fetch(`/api/tickets/${ticketId}/messages`)
       const d = await r.json()
       if (d.messages) setMessages(d.messages)
     } catch {}
-  }, [params.id, uid])
+  }, [ticketId, uid])
 
   useEffect(() => {
     if (!uid) return
     Promise.all([
-      fetch(`/api/tickets/${params.id}`).then(r => r.json()),
-      fetch(`/api/tickets/${params.id}/messages`).then(r => r.json()),
+      fetch(`/api/tickets/${ticketId}`).then(r => r.json()),
+      fetch(`/api/tickets/${ticketId}/messages`).then(r => r.json()),
     ]).then(([td, md]) => {
       if (td.ticket) {
         setTicket(td.ticket)
@@ -114,7 +115,7 @@ export default function TicketDetailPage({ params: rawParams }: { params: any })
       }
       if (md.messages) setMessages(md.messages)
     }).catch(() => {}).finally(() => setLoading(false))
-  }, [params.id, uid])
+  }, [ticketId, uid])
 
   useEffect(() => {
     if (!uid) return
@@ -173,7 +174,7 @@ export default function TicketDetailPage({ params: rawParams }: { params: any })
 
     setSending(true)
     try {
-      const res = await fetch(`/api/tickets/${params.id}/messages`, {
+      const res = await fetch(`/api/tickets/${ticketId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -196,7 +197,7 @@ export default function TicketDetailPage({ params: rawParams }: { params: any })
 
   const updateStatus = async () => {
     if (!newStatus || newStatus === ticket?.status) return
-    const res = await fetch(`/api/tickets/${params.id}`, {
+    const res = await fetch(`/api/tickets/${ticketId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
@@ -208,7 +209,7 @@ export default function TicketDetailPage({ params: rawParams }: { params: any })
   const saveAdminNotes = async () => {
     setSavingNotes(true)
     try {
-      const res = await fetch(`/api/tickets/${params.id}`, {
+      const res = await fetch(`/api/tickets/${ticketId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminNotes }),
@@ -226,7 +227,7 @@ export default function TicketDetailPage({ params: rawParams }: { params: any })
     if (!confirm('¿Eliminar este ticket y todos sus mensajes?')) return
     setDeleting(true)
     try {
-      const res = await fetch(`/api/tickets/${params.id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/tickets/${ticketId}`, { method: 'DELETE' })
       if (res.ok) router.push('/tickets')
     } finally {
       setDeleting(false)
@@ -239,7 +240,7 @@ export default function TicketDetailPage({ params: rawParams }: { params: any })
       const res = await fetch(`/api/voice/token?room=${encodeURIComponent(roomId)}`)
       if (!res.ok) throw new Error('Error al obtener token de voz')
       const { token, serverUrl } = await res.json()
-      join(roomId, `Ticket: ${ticket?.subject ?? params.id}`, token, serverUrl)
+      join(roomId, `Ticket: ${ticket?.subject ?? ticketId}`, token, serverUrl)
     } catch (err: any) {
       setVoiceError(err.message)
     } finally {

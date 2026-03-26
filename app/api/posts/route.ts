@@ -71,9 +71,13 @@ export async function GET(req: Request) {
       Post.countDocuments(filter),
     ])
 
-    // Apply VIP locking
+    const isAdmin = (session?.user as any)?.role === 'admin'
+
+    // Apply VIP locking (skip for admins and post authors)
     const processedPosts = posts.map((post: any) => {
-      if (post.vipOnly && !isVip) {
+      const authorId = String(post.author?._id ?? post.author ?? '')
+      const isAuthor = uid && authorId === uid
+      if (post.vipOnly && !isVip && !isAdmin && !isAuthor) {
         return {
           ...post,
           content: (post.content ?? '').slice(0, 120) + '...',
