@@ -35,12 +35,12 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
     else router.push('/')
   }
 
-  const handleSignOut = () => {
-    const callbackUrl = typeof window !== 'undefined'
-      ? `${window.location.origin}/login`
-      : '/login'
+  const handleSignOut = async () => {
+    await signOut({ redirect: false })
 
-    signOut({ callbackUrl })
+    if (typeof window !== 'undefined') {
+      window.location.href = 'https://forosas.netlify.app/login'
+    }
   }
 
   const sessionUser = session?.user as any
