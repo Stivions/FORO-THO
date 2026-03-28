@@ -19,6 +19,7 @@ export interface IUser {
   }
   role: 'user' | 'admin' | 'moderator'
   badges: string[]
+  emailVerified: boolean
   postsCount: number
   commentsCount: number
   likesCount: number
@@ -53,6 +54,7 @@ const UserSchema = new Schema<IUser>(
     },
     role:           { type: String, enum: ['user', 'admin', 'moderator'], default: 'user' },
     badges:         [{ type: String }],
+    emailVerified:  { type: Boolean, default: false },
     postsCount:     { type: Number, default: 0 },
     commentsCount:  { type: Number, default: 0 },
     likesCount:     { type: Number, default: 0 },

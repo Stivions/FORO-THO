@@ -9,24 +9,22 @@ type Mode = 'login' | 'register'
 
 const HCAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITE_KEY ?? '10000000-ffff-ffff-ffff-000000000001'
 const BG_IMAGES = ['/fondologin.jpg', '/fondologin1.png']
-const BG_INTERVAL = 6000 // ms per image
-
+const BG_INTERVAL = 6000
 
 export default function LoginPage() {
   const router = useRouter()
   const [mode, setMode] = useState<Mode>('login')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [codeSent, setCodeSent] = useState(false)
   const captchaRef = useRef<HCaptcha>(null)
 
-  const [form, setForm] = useState({ username: '', email: '', password: '' })
-  const [alreadyExists, setAlreadyExists] = useState(false)
+  const [form, setForm] = useState({ username: '', email: '', code: '' })
   const [muted, setMuted] = useState(false)
-  const [audioReady, setAudioReady] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  // Background image rotation
   const [bgIndex, setBgIndex] = useState(0)
   const [bgFading, setBgFading] = useState(false)
 
@@ -41,14 +39,13 @@ export default function LoginPage() {
     return () => clearInterval(timer)
   }, [])
 
-  // Autoplay on mount — if blocked, play on first user interaction
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
     audio.volume = 0.5
-    audio.play().then(() => setAudioReady(true)).catch(() => {
+    audio.play().catch(() => {
       const unlock = () => {
-        audio.play().then(() => setAudioReady(true)).catch(() => {})
+        audio.play().catch(() => {})
         document.removeEventListener('click', unlock)
         document.removeEventListener('keydown', unlock)
       }
@@ -68,87 +65,128 @@ export default function LoginPage() {
   const handle = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    setAlreadyExists(false)
+  const resetFlow = () => {
+    setCodeSent(false)
+    setCaptchaToken(null)
+    setForm(f => ({ ...f, code: '' }))
+    captchaRef.current?.resetCaptcha()
+  }
 
-    if (!captchaToken) { setError('// ERROR: CAPTCHA_NOT_VERIFIED'); return }
+  async function sendCode() {
+    if (!captchaToken) {
+      setError('// ERROR: CAPTCHA_NOT_VERIFIED')
+      return
+    }
 
     setLoading(true)
-    let newUserId: string | null = null
-    try {
-      if (mode === 'register') {
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...form, captchaToken }),
-        })
-        const data = await res.json()
-        if (!res.ok) {
-          if (data.alreadyExists) {
-            setAlreadyExists(true)
-            setError(`// ${data.error?.toUpperCase()} — ¿Ya tienes cuenta? Inicia sesión`)
-          } else {
-            setError(`// ERROR: ${data.error?.toUpperCase()}`)
-          }
-          captchaRef.current?.resetCaptcha()
-          setCaptchaToken(null)
-          setLoading(false)
-          return
-        }
-        // Save the new user's ID so we can roll back if login fails
-        newUserId = data.user?.id ?? null
-      }
+    setError('')
+    setInfo('')
 
-      const result = await signIn('credentials', {
-        email: form.email,
-        password: form.password,
-        redirect: false,
+    try {
+      const res = await fetch('/api/auth/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode,
+          email: form.email,
+          username: form.username,
+          captchaToken,
+        }),
       })
 
-      if (result?.error) {
-        // If we just registered and login fails, roll back the created user
-        if (newUserId) {
-          await fetch('/api/auth/register/rollback', {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: newUserId }),
-          })
-        }
-        if (result.error === 'IP_BANNED')
-          setError('// ERROR: IP_BANEADA — Contacta a un administrador')
-        else if (result.error === 'ACCOUNT_BANNED')
-          setError('// ERROR: CUENTA_BANEADA — Contacta a un administrador')
-        else
-          setError('// ERROR: CREDENCIALES_INVALIDAS')
-        captchaRef.current?.resetCaptcha()
-        setCaptchaToken(null)
-      } else {
-        router.push('/')
-        router.refresh()
+      const data = await res.json()
+      if (!res.ok) {
+        setError(`// ERROR: ${(data.error ?? 'NO_SE_PUDO_ENVIAR').toUpperCase()}`)
+        return
       }
+
+      setCodeSent(true)
+      setInfo(`// CODIGO_ENVIADO_A ${String(data.maskedEmail ?? form.email).toUpperCase()}`)
+      setCaptchaToken(null)
+      captchaRef.current?.resetCaptcha()
     } finally {
       setLoading(false)
     }
   }
 
+  async function verifyCode() {
+    setLoading(true)
+    setError('')
+    setInfo('')
+
+    try {
+      const result = await signIn('credentials', {
+        email: form.email,
+        code: form.code,
+        mode,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        if (result.error === 'IP_BANNED') {
+          setError('// ERROR: IP_BANEADA')
+        } else if (result.error === 'ACCOUNT_BANNED') {
+          setError('// ERROR: CUENTA_BANEADA')
+        } else if (result.error === 'CODE_INVALID') {
+          setError('// ERROR: CODIGO_INVALIDO_O_EXPIRADO')
+        } else {
+          setError('// ERROR: NO_SE_PUDO_INICIAR_SESION')
+        }
+        return
+      }
+
+      router.push('/')
+      router.refresh()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setInfo('')
+
+    if (!form.email.trim()) {
+      setError('// ERROR: EMAIL_REQUERIDO')
+      return
+    }
+
+    if (mode === 'register' && !form.username.trim()) {
+      setError('// ERROR: USUARIO_REQUERIDO')
+      return
+    }
+
+    if (!codeSent) {
+      await sendCode()
+      return
+    }
+
+    if (!form.code.trim()) {
+      setError('// ERROR: CODIGO_REQUERIDO')
+      return
+    }
+
+    await verifyCode()
+  }
+
   function switchMode() {
     setMode(mode === 'login' ? 'register' : 'login')
     setError('')
-    setAlreadyExists(false)
+    setInfo('')
     setCaptchaToken(null)
+    setCodeSent(false)
+    setForm({ username: '', email: '', code: '' })
     captchaRef.current?.resetCaptcha()
   }
 
-  const title = mode === 'login' ? 'NOSOTROS NO MORIMOS' : 'ÚNETE A DEDSEC'
+  const title = mode === 'login' ? 'ACCESO POR CODIGO' : 'VERIFICA TU CORREO'
 
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden"
       style={{ background: '#000', fontFamily: 'monospace' }}
     >
-      {/* Rotating background images */}
       {BG_IMAGES.map((src, i) => (
         <div
           key={src}
@@ -163,12 +201,10 @@ export default function LoginPage() {
           }}
         />
       ))}
-      {/* Dark overlay to keep DedSec feel */}
+
       <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: 'linear-gradient(135deg, #000000cc 0%, #050810bb 100%)', pointerEvents: 'none' }} />
-      {/* Audio */}
       <audio ref={audioRef} src="/cancionlogin.mp3" loop preload="auto" />
 
-      {/* Mute button — bottom right */}
       <button
         onClick={toggleMute}
         title={muted ? 'Activar sonido' : 'Silenciar'}
@@ -177,58 +213,27 @@ export default function LoginPage() {
           background: 'transparent', border: '1px solid #00fff540',
           color: '#00fff5', fontFamily: 'monospace', fontSize: '10px',
           letterSpacing: '0.1em', padding: '6px 10px', cursor: 'pointer',
-          transition: 'border-color 0.2s, box-shadow 0.2s',
         }}
-        onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 0 10px #00fff540')}
-        onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
       >
-        {muted ? '▶ SND OFF' : '♪ SND ON'}
+        {muted ? 'SND OFF' : 'SND ON'}
       </button>
-      {/* Background grid */}
+
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: `linear-gradient(#00fff508 1px, transparent 1px), linear-gradient(90deg, #00fff508 1px, transparent 1px)`,
+        backgroundImage: 'linear-gradient(#00fff508 1px, transparent 1px), linear-gradient(90deg, #00fff508 1px, transparent 1px)',
         backgroundSize: '40px 40px',
-      }}/>
+      }} />
 
-      {/* Scanline effect */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0,
-          height: '2px', background: 'linear-gradient(transparent, #00fff520, transparent)',
-          animation: 'scanline 6s linear infinite',
-        }}/>
-      </div>
-
-      {/* Corner decorations */}
-      <div className="absolute top-6 left-6 pointer-events-none" style={{ color: '#00fff530', fontSize: '10px', letterSpacing: '0.1em' }}>
-        <div>SYS::DEDSEC_NET</div>
-        <div>STATUS: ONLINE</div>
-      </div>
-      <div className="absolute top-6 right-6 pointer-events-none text-right" style={{ color: '#00fff530', fontSize: '10px' }}>
-        <div>NODE_ID: 7734</div>
-        <div>ENC: AES-256</div>
-      </div>
-      <div className="absolute bottom-6 left-6 pointer-events-none" style={{ color: '#00fff320', fontSize: '9px' }}>
-        {'> WE_ARE_DEDSEC'}
-      </div>
-      <div className="absolute bottom-6 right-6 pointer-events-none" style={{ color: '#00fff320', fontSize: '9px' }}>
-        {'> CTOS_OFFLINE'}
-      </div>
-
-      {/* Main card */}
       <div className="w-full max-w-sm relative z-10" style={{
         border: '1px solid #00fff530',
         background: '#00000099',
         backdropFilter: 'blur(10px)',
         padding: '2.5rem 2rem',
       }}>
-        {/* Corner brackets */}
-        <div className="absolute top-0 left-0 w-4 h-4 border-t border-l" style={{ borderColor: '#00fff5' }}/>
-        <div className="absolute top-0 right-0 w-4 h-4 border-t border-r" style={{ borderColor: '#00fff5' }}/>
-        <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l" style={{ borderColor: '#00fff5' }}/>
-        <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r" style={{ borderColor: '#00fff5' }}/>
+        <div className="absolute top-0 left-0 w-4 h-4 border-t border-l" style={{ borderColor: '#00fff5' }} />
+        <div className="absolute top-0 right-0 w-4 h-4 border-t border-r" style={{ borderColor: '#00fff5' }} />
+        <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l" style={{ borderColor: '#00fff5' }} />
+        <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r" style={{ borderColor: '#00fff5' }} />
 
-        {/* Logo + Title */}
         <div className="flex flex-col items-center mb-8 gap-3">
           <div style={{
             width: '140px', height: '140px', borderRadius: '50%',
@@ -249,20 +254,20 @@ export default function LoginPage() {
             {title}
           </h1>
           <p style={{ color: '#00fff550', fontSize: '10px', letterSpacing: '0.15em' }}>
-            {mode === 'login' ? '> AUTENTICACIÓN REQUERIDA' : '> REGISTRO DE AGENTE'}
+            {mode === 'login' ? '> INGRESA CON TU CORREO Y CODIGO' : '> CREA TU CUENTA CON EMAIL REAL'}
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={submit} className="flex flex-col gap-4">
           {mode === 'register' && (
             <div className="flex flex-col gap-1">
-              <label style={{ color: '#00fff580', fontSize: '10px', letterSpacing: '0.15em' }}>{'> IDENTIFICADOR'}</label>
+              <label style={{ color: '#00fff580', fontSize: '10px', letterSpacing: '0.15em' }}>{'> USUARIO'}</label>
               <input
                 name="username"
                 placeholder="tu_usuario"
                 value={form.username}
                 onChange={handle}
+                disabled={codeSent}
                 required
                 className="dedsec-input w-full px-3 py-2 text-sm rounded-none outline-none"
               />
@@ -274,83 +279,91 @@ export default function LoginPage() {
             <input
               name="email"
               type="email"
-              placeholder="agente@dedsec.net"
+              placeholder="usuario@correo.com"
               value={form.email}
               onChange={handle}
+              disabled={codeSent}
               required
               className="dedsec-input w-full px-3 py-2 text-sm rounded-none outline-none"
             />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label style={{ color: '#00fff580', fontSize: '10px', letterSpacing: '0.15em' }}>{'> CONTRASEÑA'}</label>
-            <input
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={handle}
-              required
-              minLength={6}
-              className="dedsec-input w-full px-3 py-2 text-sm rounded-none outline-none"
-            />
-          </div>
+          {codeSent && (
+            <div className="flex flex-col gap-1">
+              <label style={{ color: '#00fff580', fontSize: '10px', letterSpacing: '0.15em' }}>{'> CODIGO'}</label>
+              <input
+                name="code"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="123456"
+                value={form.code}
+                onChange={handle}
+                required
+                className="dedsec-input w-full px-3 py-2 text-sm rounded-none outline-none tracking-[0.4em] text-center"
+              />
+            </div>
+          )}
 
-          {/* hCaptcha */}
-          <div className="flex justify-center mt-1">
-            <HCaptcha
-              ref={captchaRef}
-              sitekey={HCAPTCHA_SITE_KEY}
-              onVerify={token => setCaptchaToken(token)}
-              onExpire={() => setCaptchaToken(null)}
-              onError={() => { setCaptchaToken(null); setError('// ERROR: CAPTCHA_FAILED') }}
-              theme="dark"
-            />
-          </div>
+          {!codeSent && (
+            <div className="flex justify-center mt-1">
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={HCAPTCHA_SITE_KEY}
+                onVerify={token => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => {
+                  setCaptchaToken(null)
+                  setError('// ERROR: CAPTCHA_FAILED')
+                }}
+                theme="dark"
+              />
+            </div>
+          )}
 
           {error && (
-            <div>
-              <p style={{ color: '#ff003c', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
-                {error}
-              </p>
-              {alreadyExists && (
-                <button
-                  type="button"
-                  onClick={switchMode}
-                  style={{
-                    marginTop: '6px',
-                    background: '#00fff510', border: '1px solid #00fff540',
-                    color: '#00fff5', fontFamily: 'monospace', fontSize: '11px',
-                    letterSpacing: '0.1em', padding: '5px 12px', cursor: 'pointer',
-                    width: '100%', transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#00fff520')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#00fff510')}
-                >
-                  {'> IR A INICIAR SESIÓN'}
-                </button>
-              )}
-            </div>
+            <p style={{ color: '#ff003c', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+              {error}
+            </p>
+          )}
+
+          {info && (
+            <p style={{ color: '#00ff88', fontSize: '11px', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+              {info}
+            </p>
           )}
 
           <button
             type="submit"
-            disabled={loading || !captchaToken}
+            disabled={loading || (!codeSent && !captchaToken)}
             className="dedsec-btn w-full py-2.5 text-sm mt-1"
           >
-            {loading ? '> PROCESANDO...' : mode === 'login' ? '> ACCEDER AL SISTEMA' : '> REGISTRAR AGENTE'}
+            {loading
+              ? '> PROCESANDO...'
+              : codeSent
+                ? '> VALIDAR CODIGO'
+                : '> ENVIAR CODIGO'}
           </button>
+
+          {codeSent && (
+            <button
+              type="button"
+              onClick={resetFlow}
+              className="w-full py-2 text-xs"
+              style={{ border: '1px solid #00fff530', color: '#00fff5', background: 'transparent' }}
+            >
+              {'> CAMBIAR CORREO / REENVIAR'}
+            </button>
+          )}
         </form>
 
-        {/* Switch mode */}
         <div className="mt-6 text-center" style={{ fontSize: '11px', color: '#00fff540' }}>
-          {mode === 'login' ? '¿Sin acceso?' : '¿Ya eres agente?'}{' '}
+          {mode === 'login' ? 'No tienes cuenta?' : 'Ya tienes cuenta?'}{' '}
           <button
             type="button"
             onClick={switchMode}
             style={{ color: '#00fff5', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'monospace' }}
           >
-            {mode === 'login' ? 'UNIRSE' : 'INGRESAR'}
+            {mode === 'login' ? 'REGISTRARME' : 'INGRESAR'}
           </button>
         </div>
       </div>

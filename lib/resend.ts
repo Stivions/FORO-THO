@@ -2,6 +2,68 @@ import { Resend } from 'resend'
 
 export const resend = new Resend(process.env.RESEND_API_KEY)
 
+export function buildAuthCodeEmail(code: string, purpose: 'login' | 'register'): string {
+  const headline = purpose === 'register' ? 'Verifica tu correo' : 'Codigo de acceso'
+  const subtitle = purpose === 'register'
+    ? 'Usa este codigo para confirmar tu cuenta en FOROSAS.'
+    : 'Usa este codigo para iniciar sesion en FOROSAS.'
+  const accent = purpose === 'register' ? '#00ff88' : '#00fff5'
+  const badge = purpose === 'register' ? 'NUEVA CUENTA' : 'LOGIN SEGURO'
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${headline}</title>
+</head>
+<body style="margin:0;padding:0;background:#050810;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#050810;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:580px;background:#0a0f18;border:1px solid #00fff530;border-radius:8px;overflow:hidden;box-shadow:0 0 30px #00fff515;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#0d1524,#050810);padding:28px 32px;border-bottom:1px solid #00fff520;text-align:center;">
+            <div style="display:inline-block;padding:6px 12px;border:1px solid #00fff530;color:${accent};font-size:10px;letter-spacing:0.2em;margin-bottom:14px;">
+              ${badge}
+            </div>
+            <div style="color:#00fff5;font-size:26px;font-weight:900;letter-spacing:0.18em;text-shadow:0 0 16px #00fff540;">FOROSAS</div>
+            <div style="color:#00fff540;font-size:10px;letter-spacing:0.2em;margin-top:6px;">AUTH::MAIL_CODE</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px;color:#c8fff8;font-size:14px;line-height:1.8;">
+            <div style="color:#00fff540;font-size:10px;letter-spacing:0.15em;margin-bottom:10px;">&gt; ${headline.toUpperCase()}</div>
+            <p style="margin:0 0 18px;font-size:15px;">${subtitle}</p>
+            <div style="margin:24px 0;padding:22px;border:1px solid #00fff540;background:linear-gradient(180deg,#0f1828,#09101b);text-align:center;border-radius:6px;">
+              <div style="color:#00fff560;font-size:10px;letter-spacing:0.22em;margin-bottom:12px;">CODIGO VALIDO POR 10 MINUTOS</div>
+              <div style="color:${accent};font-size:38px;font-weight:900;letter-spacing:0.35em;text-shadow:0 0 18px ${accent}55;">${code}</div>
+            </div>
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;border-collapse:collapse;">
+              <tr>
+                <td style="padding:12px 14px;border:1px solid #00fff520;background:#00fff508;color:#c8fff8;font-size:12px;">
+                  1. Copia el codigo.
+                  <br/>
+                  2. Vuelve a FOROSAS.
+                  <br/>
+                  3. Pegalo para completar el acceso.
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0;color:#c8fff880;font-size:12px;">Si no solicitaste este codigo, puedes ignorar este correo con seguridad.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 32px;text-align:center;border-top:1px solid #00fff515;">
+            <p style="margin:0;color:#00fff540;font-size:9px;letter-spacing:0.1em;">FOROSAS · CORREO DE ACCESO AUTOMATICO</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
 export function buildVipReceiptEmail(username: string, expiresAt: Date): string {
   const expStr = expiresAt.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
   return `<!DOCTYPE html>

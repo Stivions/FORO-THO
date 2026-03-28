@@ -1,9 +1,12 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { connectDB } from './mongodb'
 import { User } from '@/models/User'
 import { BannedIP } from '@/models/BannedIP'
+import { AuthCode } from '@/models/AuthCode'
+import { hashAuthCode, normalizeEmail } from './auth-code'
 
 function getIP(req: any): string {
   return (
@@ -20,10 +23,12 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email:        { label: 'Email',    type: 'email' },
         password:     { label: 'Password', type: 'password' },
+        code:         { label: 'Code',     type: 'text' },
+        mode:         { label: 'Mode',     type: 'text' },
         captchaToken: { label: 'Captcha',  type: 'text' },
       },
       async authorize(credentials, req) {
-        if (!credentials?.email || !credentials?.password) return null
+        if (!credentials?.email) return null
 
         await connectDB()
 
@@ -34,7 +39,65 @@ export const authOptions: NextAuthOptions = {
           if (ipBanned) throw new Error('IP_BANNED')
         }
 
-        const user = await User.findOne({ email: credentials.email })
+        const email = normalizeEmail(credentials.email)
+
+        if (credentials.code) {
+          const purpose = credentials.mode === 'register' ? 'register' : 'login'
+          const authCode = await AuthCode.findOne({
+            email,
+            purpose,
+            consumedAt: null,
+            expiresAt: { $gt: new Date() },
+          }).sort({ createdAt: -1 })
+
+          if (!authCode || authCode.attempts >= 5) throw new Error('CODE_INVALID')
+
+          const validCode = authCode.codeHash === hashAuthCode(email, credentials.code)
+          if (!validCode) {
+            authCode.attempts += 1
+            await authCode.save()
+            throw new Error('CODE_INVALID')
+          }
+
+          authCode.consumedAt = new Date()
+          await authCode.save()
+
+          let user = await User.findOne({ email })
+
+          if (!user) {
+            if (purpose !== 'register' || !authCode.username) throw new Error('CODE_INVALID')
+
+            const totalUsers = await User.countDocuments()
+            const badges: string[] = totalUsers < 10 ? ['first_user'] : []
+            const generatedPassword = await bcrypt.hash(crypto.randomUUID(), 12)
+
+            user = await User.create({
+              username: authCode.username,
+              email,
+              password: generatedPassword,
+              badges,
+              emailVerified: true,
+            })
+          } else if (!user.emailVerified) {
+            user.emailVerified = true as any
+            await user.save()
+          }
+
+          if (user.banned) throw new Error('ACCOUNT_BANNED')
+          if (ip) await User.updateOne({ _id: user._id }, { $set: { lastKnownIp: ip } })
+
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            name: user.username,
+            image: user.avatar || null,
+            role: user.role,
+          }
+        }
+
+        if (!credentials.password) return null
+
+        const user = await User.findOne({ email })
         if (!user) return null
 
         // Check account ban
