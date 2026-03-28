@@ -50,6 +50,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
+    if ((session.user as any).role !== 'admin') {
+      return NextResponse.json({ error: 'Solo los admins pueden crear categorias' }, { status: 403 })
+    }
+
     const { name, icon = 'MessageSquare', description = '' } = await req.json()
 
     if (!name?.trim()) {

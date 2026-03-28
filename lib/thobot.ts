@@ -26,16 +26,32 @@ export async function getBotUserId(): Promise<string> {
       email:       BOT_EMAIL,
       password:    hashed,
       displayName: 'ThoBot',
-      bio:         'Soy el asistente IA de Skill All Show. Mencioname con @thobot para preguntarme lo que quieras.',
+      bio:         'Soy ThoBot, el asistente IA VIP de Skill All Show. Mencioname con @thobot para ayudarte.',
       role:        'user',
       badges:      ['bot', 'verified'],
+      vip:         true,
+      vipExpiresAt: null,
     })
   } else {
     // If the bot was created before with a plain-text password, re-hash it
     const pw = (bot as any).password ?? ''
     if (!pw.startsWith('$2')) {
       const hashed = await bcrypt.hash(BOT_PASSWORD_PLAIN, 10)
-      await User.findByIdAndUpdate((bot as any)._id, { password: hashed, badges: ['bot', 'verified'] })
+      await User.findByIdAndUpdate((bot as any)._id, {
+        password: hashed,
+        badges: ['bot', 'verified'],
+        displayName: 'ThoBot',
+        vip: true,
+        vipExpiresAt: null,
+      })
+    } else {
+      await User.findByIdAndUpdate((bot as any)._id, {
+        $set: {
+          displayName: 'ThoBot',
+          vip: true,
+          vipExpiresAt: null,
+        },
+      })
     }
   }
 

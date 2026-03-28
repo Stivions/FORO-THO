@@ -853,7 +853,7 @@ export default function AdminPage() {
                   <input
                     value={announce.ctaUrl}
                     onChange={e => setAnnounce(p => ({ ...p, ctaUrl: e.target.value }))}
-                    placeholder="https://forotho.netlify.app"
+                    placeholder="https://tu-dominio.com"
                     className="dedsec-input px-3 py-2 text-sm rounded-none w-full outline-none"
                   />
                 </div>

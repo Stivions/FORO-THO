@@ -17,6 +17,7 @@ import {
 import type { PostData } from './post-feed'
 import { UserBadges } from './user-badges'
 import { VipLock } from './vip-lock'
+import { RenderContent } from '@/components/ui/render-content'
 
 interface PostCardProps {
   post: PostData
@@ -259,9 +260,7 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
                 <VipLock title={post.title} preview={(post as any).preview} />
               </div>
             ) : (
-              <>
-                <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--muted-foreground)' }}>{post.content}</p>
-              </>
+              <RenderContent text={post.content} className="block text-sm mb-3 line-clamp-3" />
             )}
 
             {/* Media — only when not locked */}

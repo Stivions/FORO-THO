@@ -23,15 +23,15 @@ export async function GET(req: Request) {
         { paypalOrderId: token },
         { status: 'completed' }
       )
-      const returnBase = process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app'
+      const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
       return NextResponse.redirect(`${returnBase}/donate?success=1`)
     }
 
-    const returnBase = process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app'
+    const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
     return NextResponse.redirect(`${returnBase}/donate?cancelled=1`)
   } catch (err) {
     console.error(err)
-    const returnBase = process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app'
+    const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
     return NextResponse.redirect(`${returnBase}/donate?cancelled=1`)
   }
 }

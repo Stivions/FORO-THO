@@ -17,7 +17,7 @@ export function RenderContent({ text, className, inverted }: RenderContentProps)
   const parts = text.split(/(@[a-zA-Z0-9_]+)/g)
 
   return (
-    <span className={className}>
+    <span className={['whitespace-pre-line break-words', className].filter(Boolean).join(' ')}>
       {parts.map((part, i) => {
         if (/^@[a-zA-Z0-9_]+$/.test(part)) {
           const username = part.slice(1)

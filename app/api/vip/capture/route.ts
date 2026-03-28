@@ -14,7 +14,7 @@ export async function GET(req: Request) {
 
     if (!token) {
       return NextResponse.redirect(
-        new URL('/vip?failed=1', process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app')
+        new URL('/vip?failed=1', process.env.NEXTAUTH_URL ?? 'http://localhost:3000')
       )
     }
 
@@ -34,17 +34,17 @@ export async function GET(req: Request) {
       }
 
       return NextResponse.redirect(
-        new URL('/vip?success=1', process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app')
+        new URL('/vip?success=1', process.env.NEXTAUTH_URL ?? 'http://localhost:3000')
       )
     }
 
     return NextResponse.redirect(
-      new URL('/vip?failed=1', process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app')
+      new URL('/vip?failed=1', process.env.NEXTAUTH_URL ?? 'http://localhost:3000')
     )
   } catch (err) {
     console.error(err)
     return NextResponse.redirect(
-      new URL('/vip?failed=1', process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app')
+      new URL('/vip?failed=1', process.env.NEXTAUTH_URL ?? 'http://localhost:3000')
     )
   }
 }

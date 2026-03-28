@@ -33,7 +33,7 @@ export function buildVipReceiptEmail(username: string, expiresAt: Date): string 
         </tr>
         <tr>
           <td style="padding:0 32px 28px;text-align:center;">
-            <a href="${process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app'}"
+            <a href="${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}"
               style="display:inline-block;padding:12px 32px;background:transparent;border:1px solid #ffaa00;color:#ffaa00;text-decoration:none;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;font-weight:700;">
               &gt; IR AL FORO
             </a>

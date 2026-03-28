@@ -13,7 +13,7 @@ export async function POST(_req: Request) {
 
   try {
     await connectDB()
-    const returnBase = process.env.NEXTAUTH_URL ?? 'https://forotho.netlify.app'
+    const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
     const order = await createOrder(returnBase)
 
     if (!order.id) {
