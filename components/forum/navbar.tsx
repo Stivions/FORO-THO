@@ -35,6 +35,14 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
     else router.push('/')
   }
 
+  const handleSignOut = () => {
+    const callbackUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/login`
+      : '/login'
+
+    signOut({ callbackUrl })
+  }
+
   const sessionUser = session?.user as any
   const user = sessionId ? {
     id:    sessionId,
@@ -175,7 +183,7 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
                   <DropdownMenuItem
                     className="cursor-pointer text-xs font-mono"
                     style={{ color: '#ff003c' }}
-                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    onClick={handleSignOut}
                   >
                     <LogOut className="mr-2 h-3.5 w-3.5" />CERRAR SESIÓN
                   </DropdownMenuItem>
