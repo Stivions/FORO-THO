@@ -29,6 +29,18 @@ export interface IUser {
   bannedReason?: string
   bannedAt?: Date
   lastKnownIp?: string
+  loginCount: number
+  lastLoginAt?: Date
+  lastLogin?: {
+    ip?: string
+    userAgent?: string
+    browser?: string
+    os?: string
+    device?: string
+    country?: string
+    city?: string
+    authMethod?: 'password' | 'email_code'
+  }
   vip: boolean
   vipExpiresAt?: Date | null
   points: number
@@ -64,6 +76,18 @@ const UserSchema = new Schema<IUser>(
     bannedReason:   { type: String, default: '' },
     bannedAt:       { type: Date, default: null },
     lastKnownIp:    { type: String, default: '' },
+    loginCount:     { type: Number, default: 0 },
+    lastLoginAt:    { type: Date, default: null },
+    lastLogin: {
+      ip:         { type: String, default: '' },
+      userAgent:  { type: String, default: '' },
+      browser:    { type: String, default: '' },
+      os:         { type: String, default: '' },
+      device:     { type: String, default: '' },
+      country:    { type: String, default: '' },
+      city:       { type: String, default: '' },
+      authMethod: { type: String, enum: ['password', 'email_code'], default: 'password' },
+    },
     vip:            { type: Boolean, default: false },
     vipExpiresAt:   { type: Date, default: null },
     points:         { type: Number, default: 0 },
@@ -76,6 +100,7 @@ UserSchema.index({ username: 1 })
 UserSchema.index({ email: 1 })
 UserSchema.index({ username: 'text', displayName: 'text' })
 UserSchema.index({ createdAt: -1 })
+UserSchema.index({ lastLoginAt: -1 })
 
 // En desarrollo forzar recreación para que los campos nuevos se reflejen
 if (process.env.NODE_ENV === 'development' && models.User) {

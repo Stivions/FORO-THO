@@ -7,6 +7,8 @@ import { User } from '@/models/User'
 import { BannedIP } from '@/models/BannedIP'
 import { AuthCode } from '@/models/AuthCode'
 import { hashAuthCode, normalizeEmail } from './auth-code'
+import { getLoginContext } from './login-audit'
+import { LoginEvent } from '@/models/LoginEvent'
 
 function getIP(req: any): string {
   return (
@@ -14,6 +16,28 @@ function getIP(req: any): string {
     req?.headers?.['x-real-ip'] ||
     ''
   )
+}
+
+async function recordLogin(user: any, req: any, method: 'password' | 'email_code') {
+  const context = getLoginContext(req, method)
+
+  await Promise.all([
+    User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          lastKnownIp: context.ip,
+          lastLoginAt: new Date(),
+          lastLogin: context,
+        },
+        $inc: { loginCount: 1 },
+      }
+    ),
+    LoginEvent.create({
+      user: user._id,
+      ...context,
+    }),
+  ])
 }
 
 export const authOptions: NextAuthOptions = {
@@ -84,7 +108,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           if (user.banned) throw new Error('ACCOUNT_BANNED')
-          if (ip) await User.updateOne({ _id: user._id }, { $set: { lastKnownIp: ip } })
+          await recordLogin(user, req, 'email_code')
 
           return {
             id: user._id.toString(),
@@ -106,8 +130,7 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.password)
         if (!valid) return null
 
-        // Store last known IP for admin reference
-        if (ip) await User.updateOne({ _id: user._id }, { $set: { lastKnownIp: ip } })
+        await recordLogin(user, req, 'password')
 
         return {
           id: user._id.toString(),

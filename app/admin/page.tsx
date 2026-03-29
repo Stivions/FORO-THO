@@ -22,6 +22,28 @@ interface AdminUser {
   banned?: boolean
   bannedReason?: string
   lastKnownIp?: string
+  loginCount?: number
+  lastLoginAt?: string
+  lastLogin?: {
+    ip?: string
+    browser?: string
+    os?: string
+    device?: string
+    country?: string
+    city?: string
+    authMethod?: string
+  }
+  recentLogins?: Array<{
+    _id: string
+    ip?: string
+    browser?: string
+    os?: string
+    device?: string
+    country?: string
+    city?: string
+    authMethod?: string
+    createdAt: string
+  }>
   createdAt: string
 }
 
@@ -557,6 +579,42 @@ export default function AdminPage() {
                         {u.lastKnownIp && (
                           <div className="text-xs font-mono mb-1" style={{ color: '#00fff540' }}>
                             IP: {u.lastKnownIp}
+                          </div>
+                        )}
+                        {(u.lastLoginAt || u.loginCount) && (
+                          <div className="mb-2 p-2 rounded" style={{ background: '#00fff508', border: '1px solid #00fff515' }}>
+                            <div className="text-xs font-mono mb-1" style={{ color: '#00fff580' }}>
+                              ACCESOS: {u.loginCount ?? 0}
+                              {u.lastLoginAt ? ` · ULTIMO: ${new Date(u.lastLoginAt).toLocaleString('es-ES')}` : ''}
+                            </div>
+                            {u.lastLogin && (
+                              <div className="text-xs font-mono" style={{ color: '#00fff540' }}>
+                                {[
+                                  u.lastLogin.device,
+                                  u.lastLogin.browser,
+                                  u.lastLogin.os,
+                                  u.lastLogin.country,
+                                  u.lastLogin.city,
+                                  u.lastLogin.authMethod ? `via ${u.lastLogin.authMethod}` : '',
+                                ].filter(Boolean).join(' · ')}
+                              </div>
+                            )}
+                            {(u.recentLogins?.length ?? 0) > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {u.recentLogins!.map(login => (
+                                  <div key={login._id} className="text-[11px] font-mono" style={{ color: '#00fff530' }}>
+                                    {new Date(login.createdAt).toLocaleString('es-ES')} · {[
+                                      login.ip,
+                                      login.device,
+                                      login.browser,
+                                      login.os,
+                                      login.country,
+                                      login.city,
+                                    ].filter(Boolean).join(' · ')}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 
