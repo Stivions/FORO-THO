@@ -38,9 +38,20 @@ export async function GET() {
     }
   }
 
+  const ipMap = new Map<string, string[]>()
+  for (const user of users) {
+    const ip = String(user.lastKnownIp || '').trim()
+    if (!ip) continue
+    const list = ipMap.get(ip) ?? []
+    list.push(String(user._id))
+    ipMap.set(ip, list)
+  }
+
   const enriched = users.map(user => ({
     ...user,
     recentLogins: loginMap.get(String(user._id)) ?? [],
+    sameIpUsers: user.lastKnownIp ? (ipMap.get(String(user.lastKnownIp)) ?? []).filter(id => id !== String(user._id)) : [],
+    sameIpCount: user.lastKnownIp ? Math.max((ipMap.get(String(user.lastKnownIp)) ?? []).length - 1, 0) : 0,
   }))
 
   return NextResponse.json({ users: enriched })

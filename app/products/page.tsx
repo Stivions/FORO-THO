@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/hooks/use-current-user'
-import { Plus, Trash2, Upload, X, Play, Loader2, Heart, ShoppingCart } from 'lucide-react'
+import { Plus, Trash2, Upload, X, Play, Loader2, Heart, ShoppingCart, Star } from 'lucide-react'
 
 interface Product {
   _id: string
@@ -13,6 +13,16 @@ interface Product {
   mediaUrl: string
   mimeType: string
   thumbnailUrl?: string
+  featured?: boolean
+  requestStatus?: string | null
+  requestAt?: string | null
+  uploadedBy?: {
+    _id?: string
+    username?: string
+    displayName?: string
+    avatar?: string
+    sellerVerified?: boolean
+  }
   createdAt: string
   likesCount: number
   liked: boolean
@@ -154,18 +164,23 @@ export default function ProductsPage() {
 
     setRequestingId(product._id)
     try {
-      const res = await fetch('/api/tickets', {
+      const message = window.prompt('Mensaje para la solicitud (opcional)') ?? ''
+      const res = await fetch('/api/product-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subject: `Interes en: ${product.title}`,
-          category: 'support',
-          message: `Hola, estoy interesado en el producto:\n\n- ${product.title}${product.description ? `\n${product.description}` : ''}\n\nPor favor contactenme con mas informacion.`,
+          productId: product._id,
+          message,
         }),
       })
       const data = await res.json()
-      if (res.ok && data.ticket?._id) {
-        router.push(`/tickets/${data.ticket._id}`)
+      if (res.ok && data.request?._id) {
+        setProducts(prev => prev.map(p =>
+          p._id === product._id ? { ...p, requestStatus: data.request.status, requestAt: data.request.createdAt } : p
+        ))
+        if (lightbox?._id === product._id) {
+          setLightbox(prev => prev ? { ...prev, requestStatus: data.request.status, requestAt: data.request.createdAt } : prev)
+        }
       }
     } finally {
       setRequestingId(null)
@@ -196,10 +211,24 @@ export default function ProductsPage() {
 
             <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
               <div className="flex-1 min-w-0">
-                <h2 className="font-mono font-bold text-lg" style={{ color: '#00fff5' }}>{lightbox.title}</h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {lightbox.featured && <Star className="w-4 h-4" style={{ color: '#ffaa00' }} fill="#ffaa00" />}
+                  <h2 className="font-mono font-bold text-lg" style={{ color: '#00fff5' }}>{lightbox.title}</h2>
+                </div>
                 {lightbox.description && (
                   <p className="font-mono text-sm mt-1 whitespace-pre-line break-words" style={{ color: '#c8fff880' }}>
                     {lightbox.description}
+                  </p>
+                )}
+                {lightbox.uploadedBy && (
+                  <p className="font-mono text-xs mt-2" style={{ color: '#00fff560' }}>
+                    Subido por {lightbox.uploadedBy.displayName || lightbox.uploadedBy.username || 'admin'}
+                    {lightbox.uploadedBy.sellerVerified && <span style={{ color: '#00ff88' }}> · vendedor verificado</span>}
+                  </p>
+                )}
+                {lightbox.requestStatus && (
+                  <p className="font-mono text-xs mt-1 uppercase" style={{ color: '#ffaa00' }}>
+                    Solicitud: {lightbox.requestStatus}
                   </p>
                 )}
               </div>
@@ -235,7 +264,7 @@ export default function ProductsPage() {
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     : <ShoppingCart className="w-3.5 h-3.5" />
                   }
-                  {requestingId === lightbox._id ? 'ABRIENDO...' : 'SOLICITAR'}
+                  {requestingId === lightbox._id ? 'ENVIANDO...' : lightbox.requestStatus ? `SOLICITUD ${lightbox.requestStatus.toUpperCase()}` : 'SOLICITAR'}
                 </button>
               </div>
             </div>
@@ -427,10 +456,24 @@ export default function ProductsPage() {
                 </div>
 
                 <div className="p-3">
-                  <h3 className="font-mono text-sm font-semibold truncate mb-0.5" style={{ color: '#c8fff8' }}>{p.title}</h3>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    {p.featured && <Star className="w-3.5 h-3.5" style={{ color: '#ffaa00' }} fill="#ffaa00" />}
+                    <h3 className="font-mono text-sm font-semibold truncate" style={{ color: '#c8fff8' }}>{p.title}</h3>
+                  </div>
                   {p.description && (
                     <p className="font-mono text-xs whitespace-pre-line break-words mb-2" style={{ color: '#c8fff860' }}>
                       {p.description}
+                    </p>
+                  )}
+                  {p.uploadedBy && (
+                    <p className="font-mono text-[11px] mb-2" style={{ color: '#00fff560' }}>
+                      {p.uploadedBy.displayName || p.uploadedBy.username || 'admin'}
+                      {p.uploadedBy.sellerVerified && <span style={{ color: '#00ff88' }}> · verificado</span>}
+                    </p>
+                  )}
+                  {p.requestStatus && (
+                    <p className="font-mono text-[11px] uppercase mb-2" style={{ color: '#ffaa00' }}>
+                      Solicitud {p.requestStatus}
                     </p>
                   )}
 
@@ -473,7 +516,7 @@ export default function ProductsPage() {
                         ? <Loader2 className="w-3 h-3 animate-spin" />
                         : <ShoppingCart className="w-3 h-3" />
                       }
-                      {requestingId === p._id ? 'ABRIENDO...' : 'SOLICITAR'}
+                      {requestingId === p._id ? 'ENVIANDO...' : p.requestStatus ? `SOLICITUD ${p.requestStatus.toUpperCase()}` : 'SOLICITAR'}
                     </button>
 
                     <p className="font-mono text-xs ml-auto" style={{ color: '#00fff530' }}>

@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   await connectDB()
   const products = await Product.find()
-    .populate('uploadedBy', 'username displayName')
-    .sort({ createdAt: -1 })
+    .populate('uploadedBy', 'username displayName sellerVerified')
+    .sort({ featured: -1, createdAt: -1 })
     .lean()
   return NextResponse.json({ products })
 }
@@ -22,21 +22,22 @@ export async function POST(req: Request) {
   const role = (session.user as any).role
   if (role !== 'admin') return NextResponse.json({ error: 'Solo admins' }, { status: 403 })
 
-  const { title, description, mediaUrl, mimeType, thumbnailUrl } = await req.json()
+  const { title, description, mediaUrl, mimeType, thumbnailUrl, featured = false } = await req.json()
   if (!title?.trim() || !mediaUrl) {
-    return NextResponse.json({ error: 'Título y mediaUrl requeridos' }, { status: 400 })
+    return NextResponse.json({ error: 'Titulo y mediaUrl requeridos' }, { status: 400 })
   }
 
   await connectDB()
   const uid = (session.user as any).id
 
   const product = await Product.create({
-    title:        title.trim().slice(0, 80),
-    description:  (description ?? '').slice(0, 300),
+    title: title.trim().slice(0, 80),
+    description: (description ?? '').slice(0, 300),
     mediaUrl,
-    mimeType:     mimeType ?? 'image/jpeg',
+    mimeType: mimeType ?? 'image/jpeg',
     thumbnailUrl: thumbnailUrl ?? '',
-    uploadedBy:   uid,
+    featured: featured === true,
+    uploadedBy: uid,
   })
 
   return NextResponse.json({ product }, { status: 201 })

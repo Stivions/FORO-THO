@@ -7,6 +7,8 @@ import { Comment } from '@/models/Comment'
 import { Post } from '@/models/Post'
 import { Notification } from '@/models/Notification'
 import { extractMentions, triggerBotReply, notifyMentions } from '@/lib/thobot'
+import { User } from '@/models/User'
+import { canReadCategory, getCategoryConfigByName } from '@/lib/access-control'
 
 type Ctx = { params: Promise<{ postId: string }> }
 
@@ -16,6 +18,18 @@ export async function GET(_req: Request, { params }: Ctx) {
     return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
 
   await connectDB()
+  const session = await getServerSession(authOptions)
+  const viewer = session?.user
+    ? await User.findById((session.user as any).id).select('role vip vipExpiresAt').lean()
+    : null
+  const post = await Post.findById(postId).select('category').lean()
+  if (!post) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
+
+  const categoryConfig = await getCategoryConfigByName((post as any).category)
+  if (!canReadCategory(categoryConfig || { name: (post as any).category }, viewer as any)) {
+    return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  }
+
   const all = await Comment.find({ post: postId })
     .populate('author', 'username avatar displayName badges')
     .sort({ createdAt: 1 })
@@ -52,7 +66,14 @@ export async function POST(req: Request, { params }: Ctx) {
 
   await connectDB()
   const uid = (session.user as any).id
-  const post = await Post.findById(postId).select('author title content').lean()
+  const user = await User.findById(uid).select('role vip vipExpiresAt').lean()
+  const post = await Post.findById(postId).select('author title content category').lean()
+  if (!post) return NextResponse.json({ error: 'Post no encontrado' }, { status: 404 })
+
+  const categoryConfig = await getCategoryConfigByName((post as any).category)
+  if (!canReadCategory(categoryConfig || { name: (post as any).category }, user as any)) {
+    return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  }
 
   const [doc] = await Promise.all([
     Comment.create({

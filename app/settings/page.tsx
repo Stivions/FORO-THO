@@ -4,13 +4,14 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCurrentUser, invalidateCurrentUser } from '@/hooks/use-current-user'
+import { signOut } from 'next-auth/react'
 import { Camera, Globe, MapPin, Loader2, Eye, EyeOff } from 'lucide-react'
 
 const TABS = ['PERFIL', 'CONTRASEÑA', 'CUENTA'] as const
 type Tab = typeof TABS[number]
 
 export default function SettingsPage() {
-  const { user, sessionId } = useCurrentUser()
+  const { user, sessionId, currentSessionId } = useCurrentUser()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('PERFIL')
 
@@ -36,6 +37,12 @@ export default function SettingsPage() {
   const [savingPw, setSavingPw] = useState(false)
   const [pwMsg, setPwMsg] = useState('')
   const [pwErr, setPwErr] = useState('')
+  const [vipAutoRenew, setVipAutoRenew] = useState(false)
+  const [sessions, setSessions] = useState<any[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [history, setHistory] = useState<{ requests: any[]; payments: any[]; donations: any[] }>({ requests: [], payments: [], donations: [] })
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [accountMsg, setAccountMsg] = useState('')
 
   useEffect(() => {
     if (user) {
@@ -47,8 +54,32 @@ export default function SettingsPage() {
         avatar:      (user as any).avatar    ?? '',
         bannerUrl:   (user as any).bannerUrl ?? '',
       })
+      setVipAutoRenew((user as any).vipAutoRenew === true)
     }
   }, [user])
+
+  useEffect(() => {
+    if (tab !== 'CUENTA' || !sessionId) return
+
+    setSessionsLoading(true)
+    setHistoryLoading(true)
+
+    fetch('/api/users/sessions')
+      .then(r => r.json())
+      .then(data => setSessions(data.sessions ?? []))
+      .catch(() => {})
+      .finally(() => setSessionsLoading(false))
+
+    fetch('/api/users/history')
+      .then(r => r.json())
+      .then(data => setHistory({
+        requests: data.requests ?? [],
+        payments: data.payments ?? [],
+        donations: data.donations ?? [],
+      }))
+      .catch(() => {})
+      .finally(() => setHistoryLoading(false))
+  }, [tab, sessionId])
 
   if (!sessionId) {
     return (
@@ -131,6 +162,42 @@ export default function SettingsPage() {
     } finally {
       setSavingPw(false)
     }
+  }
+
+  async function toggleVipRenew() {
+    setAccountMsg('')
+    const next = !vipAutoRenew
+    const res = await fetch('/api/users/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vipAutoRenew: next }),
+    })
+    if (res.ok) {
+      setVipAutoRenew(next)
+      invalidateCurrentUser()
+      setAccountMsg('Preferencia VIP actualizada')
+    } else {
+      setAccountMsg('No se pudo actualizar la preferencia VIP')
+    }
+  }
+
+  async function revokeSession(sessionDbId: string, isCurrent: boolean) {
+    const res = await fetch(`/api/users/sessions/${sessionDbId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: isCurrent ? 'manual_logout' : 'manual_revoke' }),
+    })
+
+    if (!res.ok) return
+
+    if (isCurrent) {
+      await fetch('/api/users/sessions/current', { method: 'DELETE' }).catch(() => {})
+      await signOut({ redirect: false })
+      window.location.href = '/login'
+      return
+    }
+
+    setSessions(prev => prev.map(item => item._id === sessionDbId ? { ...item, active: false, revokedAt: new Date().toISOString() } : item))
   }
 
   const inputCls = 'dedsec-input w-full px-3 py-2 text-sm outline-none font-mono'
@@ -333,6 +400,112 @@ export default function SettingsPage() {
               <p className="font-mono text-xs mb-1" style={{ color: '#00fff560' }}>PUNTOS</p>
               <p className="font-mono text-2xl font-bold" style={{ color: '#00fff5' }}>{(user as any)?.points ?? 0}</p>
             </div>
+            <div className="p-4 rounded space-y-3" style={{ background: '#ffaa0008', border: '1px solid #ffaa0025' }}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-mono text-xs mb-1" style={{ color: '#ffaa0060' }}>RENOVACION VIP</p>
+                  <p className="font-mono text-sm" style={{ color: '#c8fff8' }}>
+                    {vipAutoRenew ? 'Avisame y renueva automaticamente cuando sea posible' : 'Solo recibir aviso de vencimiento'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleVipRenew}
+                  className="px-3 py-1.5 font-mono text-xs rounded"
+                  style={{ border: '1px solid #ffaa0040', color: '#ffaa00', background: vipAutoRenew ? '#ffaa0015' : 'transparent' }}
+                >
+                  {vipAutoRenew ? 'AUTO ON' : 'AUTO OFF'}
+                </button>
+              </div>
+              <p className="font-mono text-xs" style={{ color: '#ffaa0060' }}>
+                Se enviara un correo si tu VIP esta por vencer. La renovacion automatica queda como preferencia para futuras integraciones de pago recurrente.
+              </p>
+            </div>
+
+            <div className="p-4 rounded space-y-3" style={{ background: '#00fff508', border: '1px solid #00fff520' }}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-mono text-xs" style={{ color: '#00fff560' }}>SESIONES ACTIVAS</p>
+                {sessionsLoading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#00fff5' }} />}
+              </div>
+              {sessions.length === 0 && !sessionsLoading ? (
+                <p className="font-mono text-xs" style={{ color: '#00fff540' }}>No hay sesiones registradas todavia.</p>
+              ) : (
+                <div className="space-y-2">
+                  {sessions.map(item => (
+                    <div key={item._id} className="flex items-start justify-between gap-3 p-3 rounded" style={{ border: '1px solid #00fff515', background: '#05081060' }}>
+                      <div className="min-w-0">
+                        <p className="font-mono text-sm" style={{ color: '#c8fff8' }}>
+                          {[item.device, item.browser, item.os].filter(Boolean).join(' · ') || 'Sesion'}
+                          {item.isCurrent && <span style={{ color: '#00fff5' }}> · actual</span>}
+                        </p>
+                        <p className="font-mono text-xs" style={{ color: '#00fff540' }}>
+                          {[item.country, item.city, item.ip].filter(Boolean).join(' · ') || 'Sin ubicacion'}
+                        </p>
+                        <p className="font-mono text-xs" style={{ color: '#00fff530' }}>
+                          Ultima actividad: {item.lastSeenAt ? new Date(item.lastSeenAt).toLocaleString('es-ES') : 'N/A'}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!item.active}
+                        onClick={() => revokeSession(item._id, item.isCurrent || item.sessionId === currentSessionId)}
+                        className="px-3 py-1.5 rounded font-mono text-xs"
+                        style={{ border: '1px solid #ff003c40', color: item.active ? '#ff003c' : '#ff003c60' }}
+                      >
+                        {item.isCurrent ? 'Cerrar esta' : item.active ? 'Revocar' : 'Cerrada'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 rounded space-y-3" style={{ background: '#00fff508', border: '1px solid #00fff520' }}>
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-mono text-xs" style={{ color: '#00fff560' }}>HISTORIAL</p>
+                {historyLoading && <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#00fff5' }} />}
+              </div>
+              <div className="space-y-2">
+                {history.requests.slice(0, 6).map(item => (
+                  <div key={item._id} className="p-3 rounded" style={{ border: '1px solid #00fff515', background: '#05081060' }}>
+                    <p className="font-mono text-sm" style={{ color: '#c8fff8' }}>
+                      Solicitud: {(item.product as any)?.title ?? 'Producto'}
+                    </p>
+                    <p className="font-mono text-xs uppercase" style={{ color: '#00fff560' }}>
+                      Estado: {item.status}
+                    </p>
+                  </div>
+                ))}
+                {history.payments.slice(0, 4).map(item => (
+                  <div key={item._id} className="p-3 rounded" style={{ border: '1px solid #00fff515', background: '#05081060' }}>
+                    <p className="font-mono text-sm" style={{ color: '#c8fff8' }}>
+                      Pago VIP: {item.amount} {item.currency}
+                    </p>
+                    <p className="font-mono text-xs uppercase" style={{ color: '#00fff560' }}>
+                      {item.method} · {item.status}
+                    </p>
+                  </div>
+                ))}
+                {history.donations.slice(0, 4).map(item => (
+                  <div key={item._id} className="p-3 rounded" style={{ border: '1px solid #00fff515', background: '#05081060' }}>
+                    <p className="font-mono text-sm" style={{ color: '#c8fff8' }}>
+                      Donacion: {item.amount} USD
+                    </p>
+                    <p className="font-mono text-xs uppercase" style={{ color: '#00fff560' }}>
+                      {item.status}
+                    </p>
+                  </div>
+                ))}
+                {!historyLoading && history.requests.length === 0 && history.payments.length === 0 && history.donations.length === 0 && (
+                  <p className="font-mono text-xs" style={{ color: '#00fff540' }}>Todavia no tienes movimientos registrados.</p>
+                )}
+              </div>
+            </div>
+            {accountMsg && (
+              <p className="font-mono text-sm" style={{ color: accountMsg.startsWith('No ') ? '#ff003c' : '#00ff88' }}>
+                {accountMsg}
+              </p>
+            )}
             <div className="mt-6 space-y-2">
               <Link href={`/profile/${sessionId}`} className="dedsec-btn block text-center py-2 text-xs font-mono">
                 VER MI PERFIL

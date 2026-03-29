@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Product } from '@/models/Product'
+import { ProductRequest } from '@/models/ProductRequest'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,12 +12,31 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   const uid = (session?.user as any)?.id ?? null
 
-  const products = await Product.find().sort({ createdAt: -1 }).lean()
+  const [products, myRequests] = await Promise.all([
+    Product.find()
+      .populate('uploadedBy', 'username displayName avatar sellerVerified')
+      .sort({ featured: -1, createdAt: -1 })
+      .lean(),
+    uid
+      ? ProductRequest.find({ user: uid })
+          .select('product status createdAt')
+          .sort({ createdAt: -1 })
+          .lean()
+      : [],
+  ])
 
-  const processed = products.map((p: any) => ({
-    ...p,
-    likesCount: p.likers?.length ?? 0,
-    liked: uid ? (p.likers ?? []).map(String).includes(uid) : false,
+  const requestMap = new Map<string, any>()
+  for (const request of myRequests as any[]) {
+    const key = String(request.product)
+    if (!requestMap.has(key)) requestMap.set(key, request)
+  }
+
+  const processed = products.map((product: any) => ({
+    ...product,
+    likesCount: product.likers?.length ?? 0,
+    liked: uid ? (product.likers ?? []).map(String).includes(uid) : false,
+    requestStatus: requestMap.get(String(product._id))?.status ?? null,
+    requestAt: requestMap.get(String(product._id))?.createdAt ?? null,
     likers: undefined,
   }))
 

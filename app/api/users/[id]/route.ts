@@ -6,7 +6,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   try {
     const { id } = await params
     await connectDB()
-    const user = await User.findById(id).select('-password')
+    const user = await User.findById(id).select([
+      'username',
+      'displayName',
+      'avatar',
+      'bannerUrl',
+      'bio',
+      'location',
+      'website',
+      'socialLinks',
+      'badges',
+      'postsCount',
+      'commentsCount',
+      'likesCount',
+      'followersCount',
+      'followingCount',
+      'createdAt',
+      'points',
+      'sellerVerified',
+      'suspicious',
+      'reputationScore',
+      'reputationVotes',
+    ].join(' '))
     if (!user) return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 })
     return NextResponse.json(user)
   } catch {

@@ -6,6 +6,7 @@ import { connectDB } from '@/lib/mongodb'
 import { Post } from '@/models/Post'
 import { Comment } from '@/models/Comment'
 import { User } from '@/models/User'
+import { canPostInCategory, canReadCategory, getCategoryConfigByName } from '@/lib/access-control'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -17,6 +18,14 @@ export async function GET(_req: Request, { params }: Ctx) {
   await connectDB()
   const post = await Post.findById(id).populate('author', 'username avatar displayName').lean()
   if (!post) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
+  const session = await getServerSession(authOptions)
+  const viewer = session?.user
+    ? await User.findById((session.user as any).id).select('role vip vipExpiresAt').lean()
+    : null
+  const categoryConfig = await getCategoryConfigByName((post as any).category)
+  if (!canReadCategory(categoryConfig || { name: (post as any).category }, viewer as any)) {
+    return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
+  }
   return NextResponse.json({ post })
 }
 
@@ -62,6 +71,11 @@ export async function PUT(req: Request, { params }: Ctx) {
     return NextResponse.json({ error: 'Sin permiso' }, { status: 403 })
 
   const { title, content, category, tags } = await req.json()
+  const viewer = await User.findById((session.user as any).id).select('role vip vipExpiresAt').lean()
+  const categoryConfig = await getCategoryConfigByName(category)
+  if (categoryConfig && !canPostInCategory(categoryConfig as any, viewer as any)) {
+    return NextResponse.json({ error: 'No tienes permiso para mover el post a esa categoria' }, { status: 403 })
+  }
   const updated = await Post.findByIdAndUpdate(
     id,
     { $set: { title, content, category, tags } },

@@ -9,6 +9,15 @@ export interface CurrentUser {
   bannerUrl?: string
   role?: string
   badges?: string[]
+  email?: string
+  vip?: boolean
+  vipExpiresAt?: string | null
+  currentSessionId?: string
+  sellerVerified?: boolean
+  suspicious?: boolean
+  suspiciousReason?: string
+  reputationScore?: number
+  reputationVotes?: number
 }
 
 let _refetch: (() => void) | null = null
@@ -62,7 +71,11 @@ export function useCurrentUser() {
     fetchCurrentUser(tick > 0).then(setUser)
   }, [status, tick])
 
-  return { user, sessionId: (session?.user as any)?.id }
+  return {
+    user,
+    sessionId: (session?.user as any)?.id,
+    currentSessionId: user?.currentSessionId || (session?.user as any)?.sid || '',
+  }
 }
 
 export function invalidateCurrentUser() {

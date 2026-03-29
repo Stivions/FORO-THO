@@ -6,6 +6,8 @@ import { connectDB } from '@/lib/mongodb'
 import { Message } from '@/models/Message'
 import { User } from '@/models/User'
 import { Notification } from '@/models/Notification'
+import { UserBlock } from '@/models/UserBlock'
+import { isBlockedBetween } from '@/lib/user-blocks'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,6 +27,11 @@ export async function GET(req: Request) {
     /* Conversation with a specific user */
     if (!mongoose.Types.ObjectId.isValid(withId))
       return NextResponse.json({ messages: [] })
+
+    const blocked = await isBlockedBetween(uid, withId)
+    if (blocked) {
+      return NextResponse.json({ messages: [], blocked: true })
+    }
 
     // Mark incoming messages as read
     await Message.updateMany({ from: withId, to: uid, read: false }, { read: true })
@@ -46,6 +53,14 @@ export async function GET(req: Request) {
 
   /* Conversations list — single aggregation pipeline, no N+1 */
   const uidObj = new mongoose.Types.ObjectId(uid)
+  const blocks = await UserBlock.find({
+    $or: [{ blocker: uidObj }, { blocked: uidObj }],
+  }).select('blocker blocked').lean()
+  const blockedIds = new Set(
+    blocks.map((entry: any) =>
+      String(entry.blocker) === uid ? String(entry.blocked) : String(entry.blocker)
+    )
+  )
 
   // 1. Unread counts per sender in one query
   const unreadCounts = await Message.aggregate([
@@ -89,11 +104,13 @@ export async function GET(req: Request) {
     { $limit: 50 },
   ])
 
-  const conversations = lastMessages.map((c: any) => ({
-    lastMessage: c.msg,
-    partner:     c.partner,
-    unread:      unreadMap.get(c._id.toString()) ?? 0,
-  }))
+  const conversations = lastMessages
+    .filter((c: any) => !blockedIds.has(c._id.toString()))
+    .map((c: any) => ({
+      lastMessage: c.msg,
+      partner:     c.partner,
+      unread:      unreadMap.get(c._id.toString()) ?? 0,
+    }))
 
   return NextResponse.json({ conversations })
 }
@@ -114,6 +131,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'No puedes enviarte un mensaje a ti mismo' }, { status: 400 })
 
   await connectDB()
+
+  if (await isBlockedBetween(uid, to)) {
+    return NextResponse.json({ error: 'No puedes enviar mensajes a este usuario' }, { status: 403 })
+  }
 
   const msg = await Message.create({ from: uid, to, content: content.trim() })
   Notification.create({

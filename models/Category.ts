@@ -5,6 +5,8 @@ export interface ICategory extends Document {
   slug: string
   icon: string
   description: string
+  visibility: 'public' | 'vip' | 'staff' | 'admin'
+  postAccess: 'all' | 'vip' | 'staff' | 'admin'
   createdBy: Types.ObjectId
   createdAt: Date
 }
@@ -15,6 +17,8 @@ const CategorySchema = new Schema<ICategory>(
     slug:        { type: String, required: true, unique: true, lowercase: true, trim: true },
     icon:        { type: String, default: 'MessageSquare' },
     description: { type: String, default: '', maxlength: 200 },
+    visibility:  { type: String, enum: ['public', 'vip', 'staff', 'admin'], default: 'public' },
+    postAccess:  { type: String, enum: ['all', 'vip', 'staff', 'admin'], default: 'all' },
     createdBy:   { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

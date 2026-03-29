@@ -37,11 +37,15 @@ export async function PUT(
 
   const { id } = await params
   const body = await req.json()
-  const { role, badges } = body
+  const { role, badges, sellerVerified, suspicious, suspiciousReason, vipAutoRenew } = body
 
   const update: Record<string, unknown> = {}
   if (role)   update.role   = role
   if (badges) update.badges = badges
+  if (sellerVerified !== undefined) update.sellerVerified = sellerVerified === true
+  if (suspicious !== undefined) update.suspicious = suspicious === true
+  if (suspiciousReason !== undefined) update.suspiciousReason = String(suspiciousReason ?? '').slice(0, 200)
+  if (vipAutoRenew !== undefined) update.vipAutoRenew = vipAutoRenew === true
 
   await connectDB()
   const user = await User.findByIdAndUpdate(id, { $set: update }, { new: true }).select('-password')

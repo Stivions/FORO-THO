@@ -8,6 +8,8 @@ export interface CategoryData {
   slug: string
   icon: string
   description: string
+  visibility?: 'public' | 'vip' | 'staff' | 'admin'
+  postAccess?: 'all' | 'vip' | 'staff' | 'admin'
   createdBy?: string
 }
 

@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   CalendarDays, MessageSquare, Heart, Edit,
-  MapPin, Globe, Twitter, Github, Instagram, MessageCircle, Loader2,
+  MapPin, Globe, Twitter, Github, Instagram, MessageCircle, Loader2, Flag, Shield, ShieldAlert, ThumbsDown, ThumbsUp,
 } from 'lucide-react'
 import { PostCard } from './post-card'
 import { EditProfileModal, type ProfileData } from './edit-profile-modal'
@@ -26,6 +26,10 @@ interface UserProfileProps {
     followersCount?: number
     followingCount?: number
     createdAt?: string
+    sellerVerified?: boolean
+    suspicious?: boolean
+    reputationScore?: number
+    reputationVotes?: number
   }
   isCurrentUser?: boolean
 }
@@ -40,6 +44,13 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
   const [following, setFollowing]     = useState(false)
   const [followersCount, setFollowersCount] = useState(initialUser.followersCount ?? 0)
   const [followLoading, setFollowLoading]   = useState(false)
+  const [blocked, setBlocked] = useState(false)
+  const [blockLoading, setBlockLoading] = useState(false)
+  const [reputationScore, setReputationScore] = useState(initialUser.reputationScore ?? 0)
+  const [reputationVotes, setReputationVotes] = useState(initialUser.reputationVotes ?? 0)
+  const [myVote, setMyVote] = useState(0)
+  const [reputationLoading, setReputationLoading] = useState(false)
+  const [reportLoading, setReportLoading] = useState(false)
 
   useEffect(() => {
     if (activeTab !== 'posts') return
@@ -60,7 +71,25 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
       .catch(() => {})
   }, [user._id, isCurrentUser])
 
+  useEffect(() => {
+    if (isCurrentUser) return
+    fetch(`/api/users/${user._id}/block`)
+      .then(r => r.json())
+      .then(d => setBlocked(!!d.blocked))
+      .catch(() => {})
+
+    fetch(`/api/users/${user._id}/reputation`)
+      .then(r => r.json())
+      .then(d => {
+        setReputationScore(d.reputationScore ?? 0)
+        setReputationVotes(d.reputationVotes ?? 0)
+        setMyVote(d.myVote ?? 0)
+      })
+      .catch(() => {})
+  }, [user._id, isCurrentUser])
+
   const handleFollow = async () => {
+    if (blocked) return
     setFollowLoading(true)
     try {
       const res = await fetch(`/api/users/${user._id}/follow`, { method: 'POST' })
@@ -68,6 +97,63 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
       if (res.ok) { setFollowing(d.following); setFollowersCount(d.followersCount) }
     } finally {
       setFollowLoading(false)
+    }
+  }
+
+  const handleBlock = async () => {
+    setBlockLoading(true)
+    try {
+      const res = await fetch(`/api/users/${user._id}/block`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setBlocked(!!data.blocked)
+        if (data.blocked) setFollowing(false)
+      }
+    } finally {
+      setBlockLoading(false)
+    }
+  }
+
+  const handleReport = async () => {
+    const reason = window.prompt('Motivo del reporte')
+    if (!reason?.trim()) return
+    const details = window.prompt('Detalles extra (opcional)') ?? ''
+
+    setReportLoading(true)
+    try {
+      const res = await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetType: 'user',
+          targetId: user._id,
+          reason: reason.trim(),
+          details,
+        }),
+      })
+      if (res.ok) alert('Reporte enviado')
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  const handleReputation = async (value: 1 | -1) => {
+    setReputationLoading(true)
+    try {
+      const nextValue = myVote === value ? 0 : value
+      const res = await fetch(`/api/users/${user._id}/reputation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: nextValue }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setReputationScore(data.reputationScore ?? 0)
+        setReputationVotes(data.reputationVotes ?? 0)
+        setMyVote(data.myVote ?? 0)
+      }
+    } finally {
+      setReputationLoading(false)
     }
   }
 
@@ -109,19 +195,27 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
               </Button>
             ) : (
               <>
-                <Button variant="outline" size="sm" onClick={() => router.push(`/messages/${user._id}`)}>
+                <Button variant="outline" size="sm" onClick={() => !blocked && router.push(`/messages/${user._id}`)} disabled={blocked}>
                   <MessageSquare className="h-4 w-4 mr-1" />Mensaje
                 </Button>
                 <Button
                   size="sm"
                   variant={following ? 'outline' : 'default'}
                   onClick={handleFollow}
-                  disabled={followLoading}
+                  disabled={followLoading || blocked}
                 >
                   {followLoading
                     ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : following ? 'Siguiendo' : 'Seguir'
+                    : blocked ? 'Bloqueado' : following ? 'Siguiendo' : 'Seguir'
                   }
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleBlock} disabled={blockLoading}>
+                  {blockLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4 mr-1" />}
+                  {blocked ? 'Desbloquear' : 'Bloquear'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleReport} disabled={reportLoading}>
+                  {reportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Flag className="h-4 w-4 mr-1" />}
+                  Reportar
                 </Button>
               </>
             )}
@@ -133,6 +227,16 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold text-foreground">{displayName}</h1>
                 <UserBadges badges={(user as any).badges} size="md" />
+                {user.sellerVerified && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: '#00ff8818', color: '#00ff88', border: '1px solid #00ff8835' }}>
+                    <Shield className="h-3.5 w-3.5" />Vendedor verificado
+                  </span>
+                )}
+                {user.suspicious && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: '#ff950018', color: '#ff9500', border: '1px solid #ff950035' }}>
+                    <ShieldAlert className="h-3.5 w-3.5" />En revision
+                  </span>
+                )}
               </div>
               <p className="text-sm text-muted-foreground">@{user.username}</p>
               {user.bio && <p className="text-foreground mt-2 leading-relaxed">{user.bio}</p>}
@@ -263,7 +367,37 @@ export function UserProfile({ user: initialUser, isCurrentUser = false }: UserPr
                 <p className="text-xl font-bold text-foreground">{followersCount}</p>
                 <p className="text-xs text-muted-foreground">Seguidores</p>
               </div>
+              <div className="text-center">
+                <p className="text-xl font-bold text-foreground">{reputationScore}</p>
+                <p className="text-xs text-muted-foreground">Reputacion</p>
+              </div>
             </div>
+
+            {!isCurrentUser && (
+              <div className="flex flex-wrap items-center gap-2 pt-2">
+                <Button
+                  variant={myVote === 1 ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleReputation(1)}
+                  disabled={reputationLoading}
+                >
+                  {reputationLoading && myVote !== 1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsUp className="h-4 w-4 mr-1" />}
+                  +1
+                </Button>
+                <Button
+                  variant={myVote === -1 ? 'destructive' : 'outline'}
+                  size="sm"
+                  onClick={() => handleReputation(-1)}
+                  disabled={reputationLoading}
+                >
+                  {reputationLoading && myVote !== -1 ? <Loader2 className="h-4 w-4 animate-spin" /> : <ThumbsDown className="h-4 w-4 mr-1" />}
+                  -1
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {reputationVotes} voto{reputationVotes !== 1 ? 's' : ''}
+                </p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

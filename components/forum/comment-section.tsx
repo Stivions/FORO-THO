@@ -72,6 +72,25 @@ function CommentItem({ comment, depth = 0, postId, currentUserId, onDelete, onRe
     if (res.ok) onDelete(comment._id)
   }
 
+  const handleReport = async () => {
+    const reason = window.prompt('Motivo del reporte')
+    if (!reason?.trim()) return
+    const details = window.prompt('Detalles extra (opcional)') ?? ''
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetType: 'comment',
+        targetId: comment._id,
+        reason: reason.trim(),
+        details,
+      }),
+    })
+
+    if (res.ok) alert('Reporte enviado')
+  }
+
   const submitReply = async () => {
     if (!replyText.trim()) return
     setIsSubmitting(true)
@@ -154,7 +173,7 @@ function CommentItem({ comment, depth = 0, postId, currentUserId, onDelete, onRe
                     <Trash2 className="mr-2 h-3.5 w-3.5" />Eliminar
                   </DropdownMenuItem>
                 ) : (
-                  <DropdownMenuItem className="text-destructive cursor-pointer">
+                  <DropdownMenuItem className="text-destructive cursor-pointer" onClick={handleReport}>
                     <Flag className="mr-2 h-3.5 w-3.5" />Reportar
                   </DropdownMenuItem>
                 )}

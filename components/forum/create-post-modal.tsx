@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FileText, X, Upload, Loader2, Link2, Download, Crown } from 'lucide-react'
 import { useCategories } from '@/hooks/use-categories'
-import { useSession } from 'next-auth/react'
+import { useCurrentUser } from '@/hooks/use-current-user'
 import { VIP_CATEGORIES } from '@/lib/categories'
 
 interface CreatePostModalProps {
@@ -29,10 +29,10 @@ type MediaMode = 'none' | 'image' | 'file' | 'drive'
 
 export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostModalProps) {
   const { categories } = useCategories()
-  const { data: session } = useSession()
-  const isAdmin = (session?.user as any)?.role === 'admin'
-  const isVip = (session?.user as any)?.vip === true && (
-    !(session?.user as any)?.vipExpiresAt || new Date((session?.user as any).vipExpiresAt) > new Date()
+  const { user } = useCurrentUser()
+  const isAdmin = (user as any)?.role === 'admin'
+  const isVip = (user as any)?.vip === true && (
+    !(user as any)?.vipExpiresAt || new Date((user as any).vipExpiresAt) > new Date()
   )
   const canSeeVip = isVip || isAdmin
   const [title,        setTitle]        = useState('')

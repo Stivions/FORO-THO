@@ -8,6 +8,8 @@ import { Notification } from '@/models/Notification'
 import { extractMentions, triggerBotReply, notifyMentions } from '@/lib/thobot'
 import { analyzePost } from '@/lib/ai-analysis'
 import { VIP_CATEGORIES } from '@/lib/categories'
+import { Category } from '@/models/Category'
+import { canPostInCategory, canReadCategory, getCategoryConfigByName } from '@/lib/access-control'
 
 const VIP_CATEGORY_SET = new Set(VIP_CATEGORIES as readonly string[])
 
@@ -28,17 +30,42 @@ export async function GET(req: Request) {
     const session = await getServerSession(authOptions)
     const uid = (session?.user as any)?.id ?? null
     let isVip = false
+    let viewer: any = null
     if (uid) {
-      const userDoc = await User.findById(uid, 'vip vipExpiresAt').lean()
-      if (userDoc) {
-        isVip = (userDoc as any).vip === true &&
-          (!((userDoc as any).vipExpiresAt) || new Date((userDoc as any).vipExpiresAt) > new Date())
+      viewer = await User.findById(uid).select('vip vipExpiresAt role').lean()
+      if (viewer) {
+        isVip = (viewer as any).vip === true &&
+          (!((viewer as any).vipExpiresAt) || new Date((viewer as any).vipExpiresAt) > new Date())
       }
+    }
+
+    const restrictedCategories = await Category.find({ visibility: { $ne: 'public' } })
+      .select('name visibility')
+      .lean()
+
+    const deniedCategories = new Set<string>()
+    for (const cat of restrictedCategories as any[]) {
+      if (!canReadCategory(cat, viewer as any)) deniedCategories.add(cat.name)
+    }
+    for (const vipCategory of VIP_CATEGORIES) {
+      if (!canReadCategory({ name: vipCategory }, viewer as any)) deniedCategories.add(vipCategory)
     }
 
     // Only show published posts (or legacy posts without status field)
     const filter: any = { status: { $nin: ['pending', 'rejected'] } }
-    if (category) filter.category = category
+    if (category) {
+      if (deniedCategories.has(category)) {
+        return NextResponse.json({
+          posts: [],
+          pagination: { page, limit, total: 0, pages: 0 },
+        }, {
+          headers: { 'Cache-Control': 'no-store' },
+        })
+      }
+      filter.category = category
+    } else if (deniedCategories.size > 0) {
+      filter.category = { $nin: Array.from(deniedCategories) }
+    }
     if (author)   filter.author = author
     if (search)   filter.$or = [
       { title:   { $regex: search, $options: 'i' } },
@@ -123,9 +150,16 @@ export async function POST(req: Request) {
     }
 
     await connectDB()
-    const uid       = (session.user as any).id
-    const userRole  = (session.user as any).role
+    const uid = (session.user as any).id
+    const viewer = await User.findById(uid).select('role vip vipExpiresAt').lean()
+    const userRole  = (viewer as any)?.role || (session.user as any).role
     const isAdmin   = userRole === 'admin'
+    const categoryConfig = await getCategoryConfigByName(category)
+
+    if (categoryConfig && !canPostInCategory(categoryConfig as any, viewer as any)) {
+      return NextResponse.json({ error: 'No tienes permiso para publicar en esta categoria' }, { status: 403 })
+    }
+
     const pending   = needsModeration(mediaUrl || '', mediaType || '', content.trim(), title.trim())
     const status    = pending ? 'pending' : 'published'
 

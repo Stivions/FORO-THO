@@ -91,6 +91,25 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
     else await navigator.clipboard.writeText(url)
   }
 
+  const handleReport = async () => {
+    const reason = window.prompt('Motivo del reporte')
+    if (!reason?.trim()) return
+    const details = window.prompt('Detalles extra (opcional)') ?? ''
+
+    const res = await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        targetType: 'post',
+        targetId: post._id,
+        reason: reason.trim(),
+        details,
+      }),
+    })
+
+    if (res.ok) alert('Reporte enviado')
+  }
+
   const role     = (session?.user as any)?.role
   const isAdmin  = role === 'admin' || role === 'moderator'
   const isOwner  = uid === post.author._id || isAdmin
@@ -401,7 +420,7 @@ export function PostCard({ post, onImageClick, onDelete }: PostCardProps) {
                       <Trash2 className="mr-2 h-3.5 w-3.5" />ELIMINAR
                     </DropdownMenuItem>
                   ) : (
-                    <DropdownMenuItem className="cursor-pointer text-xs font-mono" style={{ color: '#ff9500' }}>
+                    <DropdownMenuItem className="cursor-pointer text-xs font-mono" style={{ color: '#ff9500' }} onClick={handleReport}>
                       <Flag className="mr-2 h-3.5 w-3.5" />REPORTAR
                     </DropdownMenuItem>
                   )}

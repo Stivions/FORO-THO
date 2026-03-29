@@ -6,6 +6,7 @@ import { connectDB } from '@/lib/mongodb'
 import { Follow } from '@/models/Follow'
 import { User } from '@/models/User'
 import { Notification } from '@/models/Notification'
+import { isBlockedBetween } from '@/lib/user-blocks'
 
 type Ctx = { params: Promise<{ id: string }> }
 
@@ -36,6 +37,10 @@ export async function POST(_req: Request, { params }: Ctx) {
   if (uid === id) return NextResponse.json({ error: 'No puedes seguirte a ti mismo' }, { status: 400 })
 
   await connectDB()
+
+  if (await isBlockedBetween(uid, id)) {
+    return NextResponse.json({ error: 'No puedes seguir a este usuario' }, { status: 403 })
+  }
 
   const existing = await Follow.findOne({ follower: uid, following: id })
   if (existing) {

@@ -36,6 +36,7 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
   }
 
   const handleSignOut = async () => {
+    await fetch('/api/users/sessions/current', { method: 'DELETE' }).catch(() => {})
     await signOut({ redirect: false })
 
     if (typeof window !== 'undefined') {

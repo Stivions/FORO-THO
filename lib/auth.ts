@@ -9,6 +9,7 @@ import { AuthCode } from '@/models/AuthCode'
 import { hashAuthCode, normalizeEmail } from './auth-code'
 import { getLoginContext } from './login-audit'
 import { LoginEvent } from '@/models/LoginEvent'
+import { UserSession } from '@/models/UserSession'
 
 function getIP(req: any): string {
   return (
@@ -20,6 +21,7 @@ function getIP(req: any): string {
 
 async function recordLogin(user: any, req: any, method: 'password' | 'email_code') {
   const context = getLoginContext(req, method)
+  const sid = crypto.randomUUID()
 
   await Promise.all([
     User.updateOne(
@@ -37,7 +39,15 @@ async function recordLogin(user: any, req: any, method: 'password' | 'email_code
       user: user._id,
       ...context,
     }),
+    UserSession.create({
+      user: user._id,
+      sessionId: sid,
+      ...context,
+      lastSeenAt: new Date(),
+    }),
   ])
+
+  return sid
 }
 
 export const authOptions: NextAuthOptions = {
@@ -108,7 +118,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           if (user.banned) throw new Error('ACCOUNT_BANNED')
-          await recordLogin(user, req, 'email_code')
+          const sid = await recordLogin(user, req, 'email_code')
 
           return {
             id: user._id.toString(),
@@ -116,6 +126,9 @@ export const authOptions: NextAuthOptions = {
             name: user.username,
             image: user.avatar || null,
             role: user.role,
+            sid,
+            vip: user.vip,
+            vipExpiresAt: user.vipExpiresAt ?? null,
           }
         }
 
@@ -130,7 +143,7 @@ export const authOptions: NextAuthOptions = {
         const valid = await bcrypt.compare(credentials.password, user.password)
         if (!valid) return null
 
-        await recordLogin(user, req, 'password')
+        const sid = await recordLogin(user, req, 'password')
 
         return {
           id: user._id.toString(),
@@ -138,6 +151,9 @@ export const authOptions: NextAuthOptions = {
           name: user.username,
           image: user.avatar || null,
           role: user.role,
+          sid,
+          vip: user.vip,
+          vipExpiresAt: user.vipExpiresAt ?? null,
         }
       },
     }),
@@ -147,6 +163,9 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = (user as any).role
+        token.sid = (user as any).sid
+        token.vip = (user as any).vip
+        token.vipExpiresAt = (user as any).vipExpiresAt
       }
       return token
     },
@@ -154,6 +173,9 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id
         ;(session.user as any).role = token.role
+        ;(session.user as any).sid = token.sid
+        ;(session.user as any).vip = token.vip
+        ;(session.user as any).vipExpiresAt = token.vipExpiresAt
       }
       return session
     },

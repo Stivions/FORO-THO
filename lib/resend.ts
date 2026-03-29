@@ -147,6 +147,47 @@ export function buildVipAdminNotifEmail(username: string, email: string, method:
 </html>`
 }
 
+export function buildVipExpiryReminderEmail(username: string, expiresAt: Date): string {
+  const expStr = expiresAt.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
+  return `<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>VIP por vencer</title></head>
+<body style="margin:0;padding:0;background:#050810;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#050810;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:580px;background:#0a0f18;border:1px solid #ffaa0035;border-radius:6px;overflow:hidden;">
+        <tr>
+          <td style="padding:24px 32px;border-bottom:1px solid #ffaa0020;background:linear-gradient(135deg,#ffaa0012,#050810);text-align:center;">
+            <div style="color:#ffaa00;font-size:11px;letter-spacing:0.2em;margin-bottom:10px;">VIP::REMINDER</div>
+            <div style="color:#ffaa00;font-size:24px;font-weight:900;letter-spacing:0.15em;">FOROSAS</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px;color:#c8fff8;font-size:14px;line-height:1.8;">
+            <p style="margin:0 0 14px;">Hola <strong style="color:#ffaa00;">@${username}</strong>,</p>
+            <p style="margin:0 0 16px;">Tu membresia VIP esta cerca de vencer. Para no perder acceso a las categorias privadas, renovala antes de la fecha limite.</p>
+            <div style="padding:18px;border:1px solid #ffaa0035;border-radius:6px;background:#ffaa0008;text-align:center;margin:18px 0;">
+              <div style="color:#ffaa0060;font-size:10px;letter-spacing:0.2em;margin-bottom:8px;">VENCE EL</div>
+              <div style="color:#ffaa00;font-size:28px;font-weight:900;letter-spacing:0.08em;">${expStr}</div>
+            </div>
+            <p style="margin:0;color:#c8fff880;font-size:12px;">Si ya renovaste, puedes ignorar este aviso.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 28px;text-align:center;">
+            <a href="${process.env.NEXTAUTH_URL ?? 'http://localhost:3000'}/vip"
+              style="display:inline-block;padding:12px 30px;border:1px solid #ffaa00;color:#ffaa00;text-decoration:none;font-size:12px;letter-spacing:0.2em;text-transform:uppercase;">
+              &gt; RENOVAR VIP
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
+}
+
 export interface AnnouncePayload {
   subject:    string
   headline:   string

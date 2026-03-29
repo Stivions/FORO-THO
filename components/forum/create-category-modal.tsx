@@ -18,6 +18,8 @@ export function CreateCategoryModal({ isOpen, onClose, onCreated }: CreateCatego
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('Hash')
   const [description, setDescription] = useState('')
+  const [visibility, setVisibility] = useState<'public' | 'vip' | 'staff' | 'admin'>('public')
+  const [postAccess, setPostAccess] = useState<'all' | 'vip' | 'staff' | 'admin'>('all')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,14 +31,18 @@ export function CreateCategoryModal({ isOpen, onClose, onCreated }: CreateCatego
       const res = await fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), icon, description }),
+        body: JSON.stringify({ name: name.trim(), icon, description, visibility, postAccess }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error); return }
-      setName(''); setIcon('Hash'); setDescription('')
+      setName('')
+      setIcon('Hash')
+      setDescription('')
+      setVisibility('public')
+      setPostAccess('all')
       onCreated()
     } catch {
-      setError('Error al crear categoría')
+      setError('Error al crear categoria')
     } finally {
       setIsSubmitting(false)
     }
@@ -48,13 +54,13 @@ export function CreateCategoryModal({ isOpen, onClose, onCreated }: CreateCatego
     <Dialog open={isOpen} onOpenChange={v => !v && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Crear categoría</DialogTitle>
+          <DialogTitle>Crear categoria</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
           <div>
             <Input
-              placeholder="Nombre de la categoría"
+              placeholder="Nombre de la categoria"
               value={name}
               onChange={e => setName(e.target.value)}
               className="bg-secondary border-border"
@@ -64,12 +70,43 @@ export function CreateCategoryModal({ isOpen, onClose, onCreated }: CreateCatego
 
           <div>
             <Input
-              placeholder="Descripción (opcional)"
+              placeholder="Descripcion (opcional)"
               value={description}
               onChange={e => setDescription(e.target.value)}
               className="bg-secondary border-border"
               maxLength={200}
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Quien puede verla</label>
+              <Select value={visibility} onValueChange={v => setVisibility(v as any)}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Publica</SelectItem>
+                  <SelectItem value="vip">VIP</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Quien puede publicar</label>
+              <Select value={postAccess} onValueChange={v => setPostAccess(v as any)}>
+                <SelectTrigger className="bg-secondary border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="vip">VIP</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div>

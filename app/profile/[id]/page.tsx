@@ -30,10 +30,31 @@ export default async function ProfilePage({ params }: ProfilePageProps) {
   if (!mongoose.Types.ObjectId.isValid(id)) notFound()
 
   await connectDB()
-  const user = await User.findById(id).select('-password').lean()
-  if (!user) notFound()
-
   const isCurrentUser = (session?.user as any)?.id === id
+  const publicFields = [
+    'username',
+    'displayName',
+    'avatar',
+    'bannerUrl',
+    'bio',
+    'location',
+    'website',
+    'socialLinks',
+    'badges',
+    'postsCount',
+    'commentsCount',
+    'likesCount',
+    'followersCount',
+    'followingCount',
+    'createdAt',
+    'points',
+    'sellerVerified',
+    'suspicious',
+    'reputationScore',
+    'reputationVotes',
+  ].join(' ')
+  const user = await User.findById(id).select(publicFields).lean()
+  if (!user) notFound()
 
   // Serialize to plain object
   const serialized = JSON.parse(JSON.stringify(user))

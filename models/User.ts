@@ -41,9 +41,16 @@ export interface IUser {
     city?: string
     authMethod?: 'password' | 'email_code'
   }
+  sellerVerified: boolean
+  suspicious: boolean
+  suspiciousReason?: string
   vip: boolean
   vipExpiresAt?: Date | null
+  vipAutoRenew: boolean
+  vipExpiryNoticeSentAt?: Date | null
   points: number
+  reputationScore: number
+  reputationVotes: number
   createdAt: Date
 }
 
@@ -88,9 +95,16 @@ const UserSchema = new Schema<IUser>(
       city:       { type: String, default: '' },
       authMethod: { type: String, enum: ['password', 'email_code'], default: 'password' },
     },
+    sellerVerified: { type: Boolean, default: false },
+    suspicious:     { type: Boolean, default: false },
+    suspiciousReason: { type: String, default: '' },
     vip:            { type: Boolean, default: false },
     vipExpiresAt:   { type: Date, default: null },
+    vipAutoRenew:   { type: Boolean, default: false },
+    vipExpiryNoticeSentAt: { type: Date, default: null },
     points:         { type: Number, default: 0 },
+    reputationScore:{ type: Number, default: 0 },
+    reputationVotes:{ type: Number, default: 0 },
   },
   { timestamps: true }
 )
@@ -101,6 +115,9 @@ UserSchema.index({ email: 1 })
 UserSchema.index({ username: 'text', displayName: 'text' })
 UserSchema.index({ createdAt: -1 })
 UserSchema.index({ lastLoginAt: -1 })
+UserSchema.index({ lastKnownIp: 1 })
+UserSchema.index({ suspicious: 1 })
+UserSchema.index({ sellerVerified: 1 })
 
 // En desarrollo forzar recreación para que los campos nuevos se reflejen
 if (process.env.NODE_ENV === 'development' && models.User) {

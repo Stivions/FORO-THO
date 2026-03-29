@@ -18,6 +18,12 @@ import { Follow } from '@/models/Follow'
 import { Payment } from '@/models/Payment'
 import { Donation } from '@/models/Donation'
 import { AuthCode } from '@/models/AuthCode'
+import { LoginEvent } from '@/models/LoginEvent'
+import { UserSession } from '@/models/UserSession'
+import { UserBlock } from '@/models/UserBlock'
+import { Report } from '@/models/Report'
+import { ProductRequest } from '@/models/ProductRequest'
+import { ReputationVote } from '@/models/ReputationVote'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,6 +103,27 @@ export async function DELETE() {
     }),
     Payment.deleteMany({ user: { $in: userIds } }),
     Donation.deleteMany({ user: { $in: userIds } }),
+    LoginEvent.deleteMany({ user: { $in: userIds } }),
+    UserSession.deleteMany({ user: { $in: userIds } }),
+    UserBlock.deleteMany({
+      $or: [
+        { blocker: { $in: userIds } },
+        { blocked: { $in: userIds } },
+      ],
+    }),
+    Report.deleteMany({
+      $or: [
+        { reporter: { $in: userIds } },
+        { reportedUser: { $in: userIds } },
+      ],
+    }),
+    ProductRequest.deleteMany({ user: { $in: userIds } }),
+    ReputationVote.deleteMany({
+      $or: [
+        { from: { $in: userIds } },
+        { to: { $in: userIds } },
+      ],
+    }),
     AuthCode.deleteMany({}),
     Post.updateMany({}, {
       $pull: {

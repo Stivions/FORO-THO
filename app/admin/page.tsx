@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BADGES, ALL_BADGE_IDS, type BadgeId } from '@/lib/badges'
-import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink, Gift, Wallet, MessageSquare } from 'lucide-react'
+import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink, Gift, Wallet, MessageSquare, Search, Download, ShieldAlert, Package, History } from 'lucide-react'
 
 interface AdminUser {
   _id: string
@@ -22,6 +22,14 @@ interface AdminUser {
   banned?: boolean
   bannedReason?: string
   lastKnownIp?: string
+  sellerVerified?: boolean
+  suspicious?: boolean
+  suspiciousReason?: string
+  sameIpUsers?: string[]
+  sameIpCount?: number
+  reputationScore?: number
+  reputationVotes?: number
+  vipAutoRenew?: boolean
   loginCount?: number
   lastLoginAt?: string
   lastLogin?: {
@@ -65,8 +73,15 @@ export default function AdminPage() {
   const [loading,       setLoading]       = useState(true)
   const [saving,        setSaving]        = useState<string | null>(null)
   const [actioningGroup, setActioningGroup] = useState<string | null>(null)
-  const [edits,         setEdits]         = useState<Record<string, { role: string; badges: string[] }>>({})
-  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce' | 'posts' | 'giveaway' | 'tickets'>('groups')
+  const [edits,         setEdits]         = useState<Record<string, {
+    role: string
+    badges: string[]
+    sellerVerified?: boolean
+    suspicious?: boolean
+    suspiciousReason?: string
+    vipAutoRenew?: boolean
+  }>>({})
+  const [tab,           setTab]           = useState<'users' | 'groups' | 'announce' | 'posts' | 'giveaway' | 'tickets' | 'accesses' | 'reports' | 'products'>('groups')
   const [pendingPosts,  setPendingPosts]  = useState<any[]>([])
   const [postsLoading,  setPostsLoading]  = useState(false)
   const [actioningPost, setActioningPost] = useState<string | null>(null)
@@ -105,6 +120,14 @@ export default function AdminPage() {
   // Tickets state
   const [tickets,        setTickets]        = useState<any[]>([])
   const [ticketsLoading, setTicketsLoading] = useState(false)
+  const [logins, setLogins] = useState<any[]>([])
+  const [loginsLoading, setLoginsLoading] = useState(false)
+  const [reports, setReports] = useState<any[]>([])
+  const [reportsLoading, setReportsLoading] = useState(false)
+  const [productRequests, setProductRequests] = useState<any[]>([])
+  const [productRequestsLoading, setProductRequestsLoading] = useState(false)
+  const [adminProducts, setAdminProducts] = useState<any[]>([])
+  const [userFilters, setUserFilters] = useState({ q: '', country: '', ip: '', device: '', sameIpOnly: false, suspiciousOnly: false })
 
   const isAdmin      = (user as any)?.role === 'admin'
   const isSuperAdmin = (user as any)?.email === 'stevensanchezdev@gmail.com' && isAdmin
@@ -118,9 +141,23 @@ export default function AdminPage() {
     ]).then(([ud, gd]) => {
       setUsers(ud.users ?? [])
       setGroups(gd.groups ?? [])
-      const init: Record<string, { role: string; badges: string[] }> = {}
+      const init: Record<string, {
+        role: string
+        badges: string[]
+        sellerVerified?: boolean
+        suspicious?: boolean
+        suspiciousReason?: string
+        vipAutoRenew?: boolean
+      }> = {}
       for (const u of ud.users ?? []) {
-        init[u._id] = { role: u.role, badges: [...u.badges] }
+        init[u._id] = {
+          role: u.role,
+          badges: [...u.badges],
+          sellerVerified: u.sellerVerified,
+          suspicious: u.suspicious,
+          suspiciousReason: u.suspiciousReason ?? '',
+          vipAutoRenew: u.vipAutoRenew,
+        }
       }
       setEdits(init)
     }).catch(() => {}).finally(() => setLoading(false))
@@ -280,6 +317,87 @@ export default function AdminPage() {
     }
   }
 
+  const loadAccesses = async () => {
+    setLoginsLoading(true)
+    try {
+      const qs = new URLSearchParams()
+      if (userFilters.q.trim()) qs.set('q', userFilters.q.trim())
+      if (userFilters.country.trim()) qs.set('country', userFilters.country.trim())
+      if (userFilters.ip.trim()) qs.set('ip', userFilters.ip.trim())
+      if (userFilters.device.trim()) qs.set('device', userFilters.device.trim())
+      const res = await fetch(`/api/admin/logins${qs.toString() ? `?${qs.toString()}` : ''}`)
+      const data = await res.json()
+      setLogins(data.logins ?? [])
+    } finally {
+      setLoginsLoading(false)
+    }
+  }
+
+  const loadReports = async () => {
+    setReportsLoading(true)
+    try {
+      const res = await fetch('/api/admin/reports')
+      const data = await res.json()
+      setReports(data.reports ?? [])
+    } finally {
+      setReportsLoading(false)
+    }
+  }
+
+  const loadProductRequests = async () => {
+    setProductRequestsLoading(true)
+    try {
+      const [requestsRes, productsRes] = await Promise.all([
+        fetch('/api/admin/product-requests').then(r => r.json()),
+        fetch('/api/admin/products').then(r => r.json()),
+      ])
+      setProductRequests(requestsRes.requests ?? [])
+      setAdminProducts(productsRes.products ?? [])
+    } finally {
+      setProductRequestsLoading(false)
+    }
+  }
+
+  const updateReportStatus = async (id: string, status: string) => {
+    const res = await fetch('/api/admin/reports', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setReports(prev => prev.map(item => item._id === id ? { ...item, ...data.report } : item))
+    }
+  }
+
+  const updateProductRequest = async (id: string, status: string) => {
+    const res = await fetch('/api/admin/product-requests', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setProductRequests(prev => prev.map(item => item._id === id ? { ...item, ...data.request } : item))
+    }
+  }
+
+  const exportCsv = (type: 'users' | 'logins') => {
+    window.open(`/api/admin/export?type=${type}`, '_blank')
+  }
+
+  const toggleFeaturedProduct = async (productId: string, featured: boolean) => {
+    const res = await fetch(`/api/admin/products/${productId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featured: !featured }),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setAdminProducts(prev => prev.map(item => item._id === productId ? { ...item, ...data.product } : item))
+    }
+  }
+
   const handleDrawWinner = async (id: string) => {
     try {
       const res = await fetch(`/api/admin/giveaway/${id}/draw`, { method: 'POST' })
@@ -363,6 +481,13 @@ export default function AdminPage() {
     }))
   }
 
+  const setUserFlag = (userId: string, patch: Record<string, unknown>) => {
+    setEdits(prev => ({
+      ...prev,
+      [userId]: { ...(prev[userId] ?? { role: 'user', badges: [] }), ...patch },
+    }))
+  }
+
   const resetForum = async () => {
     if (!confirm('⚠️ Esto borrará TODOS los posts, comentarios, mensajes y grupos.\n\nLos usuarios y categorías se conservan.\n\n¿Confirmar?')) return
     setResetting(true)
@@ -393,6 +518,28 @@ export default function AdminPage() {
       setSaving(null)
     }
   }
+
+  const filteredUsers = users.filter(u => {
+    const q = userFilters.q.trim().toLowerCase()
+    const matchesQ = !q || [
+      u.username,
+      u.displayName,
+      u.email,
+      u.lastKnownIp,
+      u.lastLogin?.country,
+      u.lastLogin?.city,
+      u.lastLogin?.device,
+      u.lastLogin?.browser,
+    ].join(' ').toLowerCase().includes(q)
+
+    const matchesCountry = !userFilters.country.trim() || (u.lastLogin?.country || '').toLowerCase().includes(userFilters.country.trim().toLowerCase())
+    const matchesIp = !userFilters.ip.trim() || (u.lastKnownIp || '').includes(userFilters.ip.trim())
+    const matchesDevice = !userFilters.device.trim() || [u.lastLogin?.device, u.lastLogin?.browser, u.lastLogin?.os].join(' ').toLowerCase().includes(userFilters.device.trim().toLowerCase())
+    const matchesSameIp = !userFilters.sameIpOnly || (u.sameIpCount ?? 0) > 0
+    const matchesSuspicious = !userFilters.suspiciousOnly || u.suspicious === true
+
+    return matchesQ && matchesCountry && matchesIp && matchesDevice && matchesSameIp && matchesSuspicious
+  })
 
   return (
     <div className="min-h-screen bg-background">
@@ -479,6 +626,27 @@ export default function AdminPage() {
               </span>
             )}
           </button>
+          <button
+            onClick={() => { setTab('accesses'); loadAccesses() }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'accesses' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <History className="h-4 w-4" />
+            Accesos
+          </button>
+          <button
+            onClick={() => { setTab('reports'); loadReports() }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'reports' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <ShieldAlert className="h-4 w-4" />
+            Reportes
+          </button>
+          <button
+            onClick={() => { setTab('products'); loadProductRequests() }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'products' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            <Package className="h-4 w-4" />
+            Productos
+          </button>
         </div>
 
         {loading ? (
@@ -549,12 +717,44 @@ export default function AdminPage() {
           </div>
         ) : tab === 'users' ? (
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">{users.length} usuarios registrados</p>
-            {users.map(u => {
-              const edit = edits[u._id] ?? { role: u.role, badges: u.badges }
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-sm text-muted-foreground">{filteredUsers.length} / {users.length} usuarios visibles</p>
+              <Button size="sm" variant="outline" onClick={() => exportCsv('users')} className="gap-2">
+                <Download className="h-4 w-4" />CSV Usuarios
+              </Button>
+            </div>
+            <div className="grid md:grid-cols-5 gap-2">
+              <input value={userFilters.q} onChange={e => setUserFilters(prev => ({ ...prev, q: e.target.value }))} placeholder="Buscar usuario/IP/pais" className="dedsec-input px-3 py-2 text-sm md:col-span-2" />
+              <input value={userFilters.country} onChange={e => setUserFilters(prev => ({ ...prev, country: e.target.value }))} placeholder="Pais" className="dedsec-input px-3 py-2 text-sm" />
+              <input value={userFilters.ip} onChange={e => setUserFilters(prev => ({ ...prev, ip: e.target.value }))} placeholder="IP" className="dedsec-input px-3 py-2 text-sm" />
+              <input value={userFilters.device} onChange={e => setUserFilters(prev => ({ ...prev, device: e.target.value }))} placeholder="Dispositivo" className="dedsec-input px-3 py-2 text-sm" />
+            </div>
+            <div className="flex gap-3 flex-wrap text-xs">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={userFilters.sameIpOnly} onChange={e => setUserFilters(prev => ({ ...prev, sameIpOnly: e.target.checked }))} />
+                Con IP repetida
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={userFilters.suspiciousOnly} onChange={e => setUserFilters(prev => ({ ...prev, suspiciousOnly: e.target.checked }))} />
+                Solo sospechosos
+              </label>
+            </div>
+            {filteredUsers.map(u => {
+              const edit = edits[u._id] ?? {
+                role: u.role,
+                badges: u.badges,
+                sellerVerified: u.sellerVerified,
+                suspicious: u.suspicious,
+                suspiciousReason: u.suspiciousReason ?? '',
+                vipAutoRenew: u.vipAutoRenew,
+              }
               const changed =
                 edit.role !== u.role ||
-                JSON.stringify([...edit.badges].sort()) !== JSON.stringify([...u.badges].sort())
+                JSON.stringify([...edit.badges].sort()) !== JSON.stringify([...u.badges].sort()) ||
+                (edit.sellerVerified ?? false) !== (u.sellerVerified ?? false) ||
+                (edit.suspicious ?? false) !== (u.suspicious ?? false) ||
+                (edit.suspiciousReason ?? '') !== (u.suspiciousReason ?? '') ||
+                (edit.vipAutoRenew ?? false) !== (u.vipAutoRenew ?? false)
 
               return (
                 <Card key={u._id} className="bg-card border-border">
@@ -575,10 +775,21 @@ export default function AdminPage() {
                               BANEADO {u.bannedReason ? `· ${u.bannedReason}` : ''}
                             </span>
                           )}
+                          {u.sellerVerified && (
+                            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: '#00ff8815', color: '#00ff88', border: '1px solid #00ff8830' }}>
+                              VENDEDOR
+                            </span>
+                          )}
+                          {u.suspicious && (
+                            <span className="text-xs font-mono px-2 py-0.5 rounded" style={{ background: '#ff950015', color: '#ff9500', border: '1px solid #ff950030' }}>
+                              SOSPECHOSO
+                            </span>
+                          )}
                         </div>
                         {u.lastKnownIp && (
                           <div className="text-xs font-mono mb-1" style={{ color: '#00fff540' }}>
                             IP: {u.lastKnownIp}
+                            {(u.sameIpCount ?? 0) > 0 && <span style={{ color: '#ff9500' }}> Â· {u.sameIpCount} cuenta(s) mas con la misma IP</span>}
                           </div>
                         )}
                         {(u.lastLoginAt || u.loginCount) && (
@@ -617,6 +828,33 @@ export default function AdminPage() {
                             )}
                           </div>
                         )}
+
+                        <div className="flex flex-wrap gap-2 mb-2 text-xs">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={edit.sellerVerified === true} onChange={e => setUserFlag(u._id, { sellerVerified: e.target.checked })} />
+                            Vendedor verificado
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={edit.suspicious === true} onChange={e => setUserFlag(u._id, { suspicious: e.target.checked })} />
+                            Marcar sospechoso
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" checked={edit.vipAutoRenew === true} onChange={e => setUserFlag(u._id, { vipAutoRenew: e.target.checked })} />
+                            Auto VIP
+                          </label>
+                        </div>
+
+                        <input
+                          value={edit.suspiciousReason ?? ''}
+                          onChange={e => setUserFlag(u._id, { suspiciousReason: e.target.value })}
+                          placeholder="Motivo sospechoso / nota interna"
+                          className="dedsec-input w-full px-2 py-1 text-xs outline-none mb-2"
+                        />
+
+                        <div className="flex flex-wrap gap-4 mb-3 text-xs text-muted-foreground">
+                          <span>Reputacion: {u.reputationScore ?? 0}</span>
+                          <span>Votos: {u.reputationVotes ?? 0}</span>
+                        </div>
 
                         {/* Inline ban form */}
                         {banConfirm === u._id && !u.banned && (
@@ -742,6 +980,128 @@ export default function AdminPage() {
                 </Card>
               )
             })}
+          </div>
+        ) : tab === 'accesses' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-sm text-muted-foreground">Ultimos accesos registrados</p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => exportCsv('logins')} className="gap-2">
+                  <Download className="h-4 w-4" />CSV Logins
+                </Button>
+                <Button size="sm" variant="outline" onClick={loadAccesses} className="gap-2">
+                  <Search className="h-4 w-4" />Actualizar
+                </Button>
+              </div>
+            </div>
+            {loginsLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : logins.length === 0 ? (
+              <p className="text-center py-10 text-sm text-muted-foreground">Sin accesos todavia</p>
+            ) : (
+              logins.map(login => (
+                <Card key={login._id} className="bg-card border-border">
+                  <CardContent className="p-4 space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{login.user?.displayName || login.user?.username || 'Usuario'}</span>
+                      <span className="text-xs text-muted-foreground">@{login.user?.username}</span>
+                      <span className="text-xs text-muted-foreground">{login.user?.email}</span>
+                    </div>
+                    <p className="text-xs font-mono" style={{ color: '#00fff560' }}>
+                      {new Date(login.createdAt).toLocaleString('es-ES')}
+                    </p>
+                    <p className="text-xs font-mono" style={{ color: '#00fff540' }}>
+                      {[login.ip, login.country, login.city, login.device, login.browser, login.os, login.authMethod].filter(Boolean).join(' Â· ')}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        ) : tab === 'reports' ? (
+          <div className="space-y-4">
+            {reportsLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : reports.length === 0 ? (
+              <p className="text-center py-10 text-sm text-muted-foreground">Sin reportes</p>
+            ) : (
+              reports.map(report => (
+                <Card key={report._id} className="bg-card border-border">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold uppercase">{report.targetType}</span>
+                      <Badge variant="outline">{report.status}</Badge>
+                      <span className="text-xs text-muted-foreground">{new Date(report.createdAt).toLocaleString('es-ES')}</span>
+                    </div>
+                    <p className="text-sm">Motivo: {report.reason}</p>
+                    {report.details && <p className="text-xs text-muted-foreground">{report.details}</p>}
+                    <p className="text-xs text-muted-foreground">
+                      Reporter: {(report.reporter as any)?.username ?? 'usuario'} · Reportado: {(report.reportedUser as any)?.username ?? 'N/A'}
+                    </p>
+                    <div className="flex gap-2 flex-wrap">
+                      {['open', 'reviewing', 'resolved', 'dismissed'].map(status => (
+                        <Button key={status} size="sm" variant="outline" onClick={() => updateReportStatus(report._id, status)}>
+                          {status}
+                        </Button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        ) : tab === 'products' ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Solicitudes de producto con estado</p>
+            {productRequestsLoading ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : productRequests.length === 0 ? (
+              <p className="text-center py-10 text-sm text-muted-foreground">Sin solicitudes de producto</p>
+            ) : (
+              productRequests.map(request => (
+                <Card key={request._id} className="bg-card border-border">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{request.product?.title ?? 'Producto'}</span>
+                      {request.product?.featured && <Badge variant="outline">Destacado</Badge>}
+                      <Badge variant="outline">{request.status}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Usuario: {request.user?.displayName || request.user?.username || 'usuario'} · {request.user?.email}
+                    </p>
+                    {request.message && <p className="text-sm">{request.message}</p>}
+                    <div className="flex gap-2 flex-wrap">
+                      {['pending', 'reviewing', 'approved', 'rejected', 'fulfilled'].map(status => (
+                        <Button key={status} size="sm" variant="outline" onClick={() => updateProductRequest(request._id, status)}>
+                          {status}
+                        </Button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+
+            <div className="pt-4 border-t border-border">
+              <p className="text-sm text-muted-foreground mb-3">Productos destacados</p>
+              <div className="space-y-3">
+                {adminProducts.map(product => (
+                  <Card key={product._id} className="bg-card border-border">
+                    <CardContent className="p-4 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold truncate">{product.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {product.uploadedBy?.displayName || product.uploadedBy?.username || 'admin'}
+                        </p>
+                      </div>
+                      <Button size="sm" variant={product.featured ? 'default' : 'outline'} onClick={() => toggleFeaturedProduct(product._id, product.featured === true)}>
+                        {product.featured ? 'Quitar destacado' : 'Destacar'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
           </div>
         ) : tab === 'posts' ? (
           <div className="space-y-4">

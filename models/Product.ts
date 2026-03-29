@@ -6,6 +6,7 @@ export interface IProduct extends Document {
   mediaUrl: string
   mimeType: string
   thumbnailUrl?: string
+  featured: boolean
   uploadedBy: mongoose.Types.ObjectId
   likers: mongoose.Types.ObjectId[]
   createdAt: Date
@@ -19,6 +20,7 @@ const ProductSchema = new Schema<IProduct>(
     mediaUrl:     { type: String, required: true },
     mimeType:     { type: String, default: 'image/jpeg' },
     thumbnailUrl: { type: String, default: '' },
+    featured:     { type: Boolean, default: false },
     uploadedBy:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
     likers:       [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
@@ -26,5 +28,6 @@ const ProductSchema = new Schema<IProduct>(
 )
 
 ProductSchema.index({ createdAt: -1 })
+ProductSchema.index({ featured: -1, createdAt: -1 })
 
 export const Product = models.Product || model<IProduct>('Product', ProductSchema)
