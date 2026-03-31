@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -10,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BADGES, ALL_BADGE_IDS, type BadgeId } from '@/lib/badges'
 import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink, Gift, Wallet, MessageSquare, Search, Download, ShieldAlert, Package, History } from 'lucide-react'
+
+const AdminUsersPanel = dynamic(() => import('@/components/admin/admin-users-panel').then(mod => mod.AdminUsersPanel))
 
 interface AdminUser {
   _id: string
@@ -767,6 +770,31 @@ export default function AdminPage() {
                 Solo sospechosos
               </label>
             </div>
+            <AdminUsersPanel
+              usersLoading={usersLoading}
+              users={users}
+              edits={edits}
+              totalUsers={totalUsers}
+              safeUserPage={safeUserPage}
+              totalUserPages={totalUserPages}
+              userPageSize={USER_PAGE_SIZE}
+              saving={saving}
+              banningId={banningId}
+              banConfirm={banConfirm}
+              banReason={banReason}
+              banIp={banIp}
+              setUserFlag={setUserFlag}
+              setRole={setRole}
+              toggleBadge={toggleBadge}
+              saveUser={saveUser}
+              setBanConfirm={setBanConfirm}
+              setBanReason={updater => setBanReason(updater)}
+              setBanIp={updater => setBanIp(updater)}
+              handleBan={handleBan}
+              setUserPage={updater => setUserPage(updater)}
+            />
+            {false && (
+              <>
             {usersLoading ? (
               <div className="flex justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -1026,6 +1054,8 @@ export default function AdminPage() {
                   Siguiente
                 </Button>
               </div>
+            )}
+              </>
             )}
           </div>
         ) : tab === 'accesses' ? (

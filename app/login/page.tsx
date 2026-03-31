@@ -344,6 +344,22 @@ export default function LoginPage() {
                 : '> ENVIAR CODIGO'}
           </button>
 
+          <a
+            href="https://discord.gg/HnRzsQGwYd"
+            target="_blank"
+            rel="noreferrer"
+            className="w-full py-2.5 text-sm text-center"
+            style={{
+              border: '1px solid #5865f240',
+              color: '#cfd6ff',
+              background: '#5865f215',
+              display: 'block',
+              letterSpacing: '0.08em',
+            }}
+          >
+            {'> ENTRAR AL DISCORD'}
+          </a>
+
           {codeSent && (
             <button
               type="button"
