@@ -5,6 +5,8 @@ import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
 import { LoginEvent } from '@/models/LoginEvent'
 
+export const dynamic = 'force-dynamic'
+
 async function isAdmin(session: any): Promise<boolean> {
   if (!session?.user) return false
   await connectDB()
@@ -19,23 +21,58 @@ export async function GET() {
   }
 
   const users = await User.find({})
-    .select('-password')
+    .select([
+      'username',
+      'email',
+      'displayName',
+      'avatar',
+      'role',
+      'badges',
+      'banned',
+      'bannedReason',
+      'lastKnownIp',
+      'sellerVerified',
+      'suspicious',
+      'suspiciousReason',
+      'reputationScore',
+      'reputationVotes',
+      'vipAutoRenew',
+      'loginCount',
+      'lastLoginAt',
+      'lastLogin',
+      'createdAt',
+    ].join(' '))
     .sort({ lastLoginAt: -1, createdAt: -1 })
     .lean() as any[]
 
   const userIds = users.map(u => u._id)
-  const loginEvents = await LoginEvent.find({ user: { $in: userIds } })
-    .sort({ createdAt: -1 })
-    .lean() as any[]
+  const loginGroups = await LoginEvent.aggregate([
+    { $match: { user: { $in: userIds } } },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: '$user',
+        recentLogins: {
+          $push: {
+            _id: '$_id',
+            ip: '$ip',
+            browser: '$browser',
+            os: '$os',
+            device: '$device',
+            country: '$country',
+            city: '$city',
+            authMethod: '$authMethod',
+            createdAt: '$createdAt',
+          },
+        },
+      },
+    },
+    { $project: { recentLogins: { $slice: ['$recentLogins', 3] } } },
+  ]) as any[]
 
   const loginMap = new Map<string, any[]>()
-  for (const event of loginEvents) {
-    const key = String(event.user)
-    const list = loginMap.get(key) ?? []
-    if (list.length < 3) {
-      list.push(event)
-      loginMap.set(key, list)
-    }
+  for (const group of loginGroups) {
+    loginMap.set(String(group._id), group.recentLogins ?? [])
   }
 
   const ipMap = new Map<string, string[]>()

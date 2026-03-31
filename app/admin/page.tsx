@@ -128,6 +128,7 @@ export default function AdminPage() {
   const [productRequestsLoading, setProductRequestsLoading] = useState(false)
   const [adminProducts, setAdminProducts] = useState<any[]>([])
   const [userFilters, setUserFilters] = useState({ q: '', country: '', ip: '', device: '', sameIpOnly: false, suspiciousOnly: false })
+  const [userPage, setUserPage] = useState(1)
 
   const isAdmin      = (user as any)?.role === 'admin'
   const isSuperAdmin = (user as any)?.email === 'stevensanchezdev@gmail.com' && isAdmin
@@ -162,6 +163,10 @@ export default function AdminPage() {
       setEdits(init)
     }).catch(() => {}).finally(() => setLoading(false))
   }, [sessionId])
+
+  useEffect(() => {
+    setUserPage(1)
+  }, [userFilters.q, userFilters.country, userFilters.ip, userFilters.device, userFilters.sameIpOnly, userFilters.suspiciousOnly])
 
   const handleGroupAction = async (groupId: string, action: 'approve' | 'reject') => {
     setActioningGroup(groupId)
@@ -541,6 +546,11 @@ export default function AdminPage() {
     return matchesQ && matchesCountry && matchesIp && matchesDevice && matchesSameIp && matchesSuspicious
   })
 
+  const USERS_PER_PAGE = 10
+  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE))
+  const safeUserPage = Math.min(userPage, totalUserPages)
+  const currentUsers = filteredUsers.slice((safeUserPage - 1) * USERS_PER_PAGE, safeUserPage * USERS_PER_PAGE)
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto p-6">
@@ -739,7 +749,7 @@ export default function AdminPage() {
                 Solo sospechosos
               </label>
             </div>
-            {filteredUsers.map(u => {
+            {currentUsers.map(u => {
               const edit = edits[u._id] ?? {
                 role: u.role,
                 badges: u.badges,
@@ -980,6 +990,19 @@ export default function AdminPage() {
                 </Card>
               )
             })}
+            {filteredUsers.length > USERS_PER_PAGE && (
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <Button size="sm" variant="outline" disabled={safeUserPage <= 1} onClick={() => setUserPage(p => Math.max(1, p - 1))}>
+                  Anterior
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Pagina {safeUserPage} de {totalUserPages}
+                </span>
+                <Button size="sm" variant="outline" disabled={safeUserPage >= totalUserPages} onClick={() => setUserPage(p => Math.min(totalUserPages, p + 1))}>
+                  Siguiente
+                </Button>
+              </div>
+            )}
           </div>
         ) : tab === 'accesses' ? (
           <div className="space-y-4">

@@ -19,6 +19,7 @@ import {
   Star,
   Heart,
   Image,
+  Pencil,
 } from 'lucide-react'
 import { useCurrentUser } from '@/hooks/use-current-user'
 import { useCategories, notifyCategories } from '@/hooks/use-categories'
@@ -26,7 +27,6 @@ import { getIcon } from '@/lib/icon-map'
 import { CreateCategoryModal } from './create-category-modal'
 import { VoiceRoom } from './voice-room'
 import { VoiceChannels } from './voice-channels'
-import { VIP_CATEGORIES } from '@/lib/categories'
 
 interface LeftSidebarProps {
   onCreatePost: () => void
@@ -48,11 +48,19 @@ const navItems = [
 export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
   const [categoriesExpanded, setCategoriesExpanded] = useState(true)
   const [showCreateCategory, setShowCreateCategory] = useState(false)
+  const [categoryDefaultVisibility, setCategoryDefaultVisibility] = useState<'public' | 'vip' | 'staff' | 'admin'>('public')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const { user, sessionId } = useCurrentUser()
   const { categories, isLoading: catsLoading, removeCategory } = useCategories()
+  const regularCategories = categories.filter(cat => cat.visibility !== 'vip')
+  const vipCategories = categories.filter(cat => cat.visibility === 'vip')
 
   const isAdmin = (user as any)?.role === 'admin'
+
+  const openCreateCategory = (visibility: 'public' | 'vip' | 'staff' | 'admin' = 'public') => {
+    setCategoryDefaultVisibility(visibility)
+    setShowCreateCategory(true)
+  }
 
   const handleDeleteCategory = async (id: string, e: React.MouseEvent) => {
     e.preventDefault()
@@ -74,6 +82,72 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
     } finally {
       setDeletingId(null)
     }
+  }
+
+  const handleRenameCategory = async (cat: any, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const name = window.prompt('Nuevo nombre para la sala', cat.name)
+    if (!name?.trim() || name.trim() === cat.name) return
+
+    const res = await fetch(`/api/categories/${cat._id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim() }),
+    })
+
+    if (res.ok) {
+      notifyCategories()
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(`Error al renombrar: ${data.error ?? res.status}`)
+    }
+  }
+
+  const renderCategoryItem = (cat: any, accent = '#00fff560', textColor = 'inherit', showVoice = true) => {
+    const Icon = getIcon(cat.icon)
+    const canManage = isAdmin || cat.createdBy === sessionId
+
+    return (
+      <div key={cat._id} className="rounded overflow-hidden">
+        <div className="group flex items-center">
+          <Link
+            href={`/?category=${encodeURIComponent(cat.name)}`}
+            className="ds-nav-item flex flex-1 items-center gap-2.5 px-3 py-1.5 rounded text-xs text-muted-foreground"
+          >
+            <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: accent }} />
+            <span className="font-mono truncate" style={{ letterSpacing: '0.04em', color: textColor }}>{cat.name}</span>
+          </Link>
+
+          {canManage && (
+            <>
+              <button
+                onClick={e => handleRenameCategory(cat, e)}
+                className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
+                style={{ color: '#ffaa0080' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#ffaa00')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#ffaa0080')}
+                title="Renombrar sala"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              <button
+                onClick={e => handleDeleteCategory(cat._id, e)}
+                disabled={deletingId === cat._id}
+                className="mr-1 p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
+                style={{ color: '#ff003c80' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#ff003c')}
+                onMouseLeave={e => (e.currentTarget.style.color = '#ff003c80')}
+                title="Eliminar categoria"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </>
+          )}
+        </div>
+        {showVoice && <VoiceRoom categoryId={cat._id} categoryName={cat.name} />}
+      </div>
+    )
   }
 
   const displayName = user?.displayName || user?.username || '...'
@@ -139,7 +213,7 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
 
               {isAdmin && (
                 <button
-                  onClick={() => setShowCreateCategory(true)}
+                  onClick={() => openCreateCategory('public')}
                   className="transition-colors"
                   style={{ color: '#00fff540' }}
                   title="Crear categoria"
@@ -155,37 +229,7 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
               <div className="space-y-0.5 mt-1">
                 {catsLoading ? (
                   <div className="px-3 py-2 text-xs font-mono" style={{ color: '#00fff540' }}>{'> loading...'}</div>
-                ) : categories.map(cat => {
-                  const Icon = getIcon(cat.icon)
-                  return (
-                    <div key={cat._id} className="rounded overflow-hidden">
-                      <div className="group flex items-center">
-                        <Link
-                          href={`/?category=${encodeURIComponent(cat.name)}`}
-                          className="ds-nav-item flex flex-1 items-center gap-2.5 px-3 py-1.5 rounded text-xs text-muted-foreground"
-                        >
-                          <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: '#00fff560' }} />
-                          <span className="font-mono truncate" style={{ letterSpacing: '0.04em' }}>{cat.name}</span>
-                        </Link>
-
-                        {(isAdmin || cat.createdBy === sessionId) && (
-                          <button
-                            onClick={e => handleDeleteCategory(cat._id, e)}
-                            disabled={deletingId === cat._id}
-                            className="mr-1 p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
-                            style={{ color: '#ff003c80' }}
-                            onMouseEnter={e => (e.currentTarget.style.color = '#ff003c')}
-                            onMouseLeave={e => (e.currentTarget.style.color = '#ff003c80')}
-                            title="Eliminar categoria"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        )}
-                      </div>
-                      <VoiceRoom categoryId={cat._id} categoryName={cat.name} />
-                    </div>
-                  )
-                })}
+                ) : regularCategories.map(cat => renderCategoryItem(cat))}
               </div>
             )}
           </div>
@@ -207,7 +251,20 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
                     // ZONA VIP
                   </span>
 
-                  {!canSeeVip && (
+                  {isAdmin && (
+                    <button
+                      onClick={() => openCreateCategory('vip')}
+                      className="transition-colors ml-auto"
+                      style={{ color: '#ffaa0080' }}
+                      title="Crear sala VIP"
+                      onMouseEnter={e => (e.currentTarget.style.color = '#ffaa00')}
+                      onMouseLeave={e => (e.currentTarget.style.color = '#ffaa0080')}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
+                  {!canSeeVip && !isAdmin && (
                     <Link
                       href="/vip"
                       className="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded transition-all"
@@ -221,27 +278,17 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
                 </div>
 
                 <div className="space-y-0.5 mt-1">
-                  {VIP_CATEGORIES.map(cat => (
-                    canSeeVip ? (
-                      <Link
-                        key={cat}
-                        href={`/?category=${encodeURIComponent(cat)}`}
-                        className="ds-nav-item flex items-center gap-2.5 px-3 py-1.5 rounded text-xs text-muted-foreground"
-                      >
-                        <Crown className="w-3 h-3 shrink-0" style={{ color: '#ffaa0060' }} />
-                        <span className="font-mono truncate" style={{ letterSpacing: '0.04em', color: '#ffaa00a0' }}>{cat}</span>
-                      </Link>
-                    ) : (
-                      <div
-                        key={cat}
-                        className="flex items-center gap-2.5 px-3 py-1.5 rounded text-xs cursor-not-allowed"
-                        title="Requiere VIP"
-                      >
-                        <Crown className="w-3 h-3 shrink-0" style={{ color: '#ffaa0030' }} />
-                        <span className="font-mono truncate" style={{ letterSpacing: '0.04em', color: '#ffaa0030' }}>{cat}</span>
-                      </div>
+                  {vipCategories.length > 0 ? (
+                    vipCategories.map(cat =>
+                      canSeeVip
+                        ? renderCategoryItem(cat, '#ffaa0060', '#ffaa00a0', true)
+                        : null
                     )
-                  ))}
+                  ) : (
+                    <div className="px-3 py-1.5 text-xs font-mono" style={{ color: canSeeVip ? '#ffaa0060' : '#ffaa0030' }}>
+                      {canSeeVip ? 'Sin salas VIP creadas' : 'Salas VIP ocultas'}
+                    </div>
+                  )}
                 </div>
               </div>
             )
@@ -303,6 +350,7 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
       <CreateCategoryModal
         isOpen={showCreateCategory}
         onClose={() => setShowCreateCategory(false)}
+        defaultVisibility={categoryDefaultVisibility}
         onCreated={() => {
           notifyCategories()
           setShowCreateCategory(false)

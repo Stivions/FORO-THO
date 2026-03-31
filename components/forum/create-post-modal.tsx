@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FileText, X, Upload, Loader2, Link2, Download, Crown } from 'lucide-react'
 import { useCategories } from '@/hooks/use-categories'
 import { useCurrentUser } from '@/hooks/use-current-user'
-import { VIP_CATEGORIES } from '@/lib/categories'
 
 interface CreatePostModalProps {
   isOpen: boolean
@@ -35,6 +34,8 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     !(user as any)?.vipExpiresAt || new Date((user as any).vipExpiresAt) > new Date()
   )
   const canSeeVip = isVip || isAdmin
+  const regularCategories = categories.filter(cat => cat.visibility !== 'vip')
+  const vipCategories = categories.filter(cat => cat.visibility === 'vip')
   const [title,        setTitle]        = useState('')
   const [content,      setContent]      = useState('')
   const [category,     setCategory]     = useState('')
@@ -250,20 +251,20 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               <SelectValue placeholder="Selecciona una categoría" />
             </SelectTrigger>
             <SelectContent>
-              {categories.map(cat => (
+              {regularCategories.map(cat => (
                 <SelectItem key={cat._id} value={cat.name}>{cat.name}</SelectItem>
               ))}
-              {canSeeVip && (
+              {canSeeVip && vipCategories.length > 0 && (
                 <>
                   <div className="px-2 py-1.5 mt-1 flex items-center gap-1.5" style={{ borderTop: '1px solid #ffaa0030' }}>
                     <Crown style={{ width: 10, height: 10, color: '#ffaa00' }} />
                     <span className="text-[10px] font-mono font-semibold" style={{ color: '#ffaa0070', letterSpacing: '0.15em' }}>ZONA VIP</span>
                   </div>
-                  {VIP_CATEGORIES.map(cat => (
-                    <SelectItem key={cat} value={cat}>
+                  {vipCategories.map(cat => (
+                    <SelectItem key={cat._id} value={cat.name}>
                       <span className="flex items-center gap-1.5">
                         <Crown style={{ width: 10, height: 10, color: '#ffaa00', flexShrink: 0 }} />
-                        <span style={{ color: '#ffaa00' }}>{cat}</span>
+                        <span style={{ color: '#ffaa00' }}>{cat.name}</span>
                       </span>
                     </SelectItem>
                   ))}

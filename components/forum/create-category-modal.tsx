@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -12,9 +12,10 @@ interface CreateCategoryModalProps {
   isOpen: boolean
   onClose: () => void
   onCreated: () => void
+  defaultVisibility?: 'public' | 'vip' | 'staff' | 'admin'
 }
 
-export function CreateCategoryModal({ isOpen, onClose, onCreated }: CreateCategoryModalProps) {
+export function CreateCategoryModal({ isOpen, onClose, onCreated, defaultVisibility = 'public' }: CreateCategoryModalProps) {
   const [name, setName] = useState('')
   const [icon, setIcon] = useState('Hash')
   const [description, setDescription] = useState('')
@@ -22,6 +23,8 @@ export function CreateCategoryModal({ isOpen, onClose, onCreated }: CreateCatego
   const [postAccess, setPostAccess] = useState<'all' | 'vip' | 'staff' | 'admin'>('all')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  const inferredPostAccess = defaultVisibility === 'vip' ? 'vip' : defaultVisibility === 'staff' ? 'staff' : defaultVisibility === 'admin' ? 'admin' : 'all'
 
   const handleSubmit = async () => {
     if (!name.trim()) return
@@ -38,8 +41,8 @@ export function CreateCategoryModal({ isOpen, onClose, onCreated }: CreateCatego
       setName('')
       setIcon('Hash')
       setDescription('')
-      setVisibility('public')
-      setPostAccess('all')
+      setVisibility(defaultVisibility)
+      setPostAccess(inferredPostAccess)
       onCreated()
     } catch {
       setError('Error al crear categoria')
@@ -49,6 +52,12 @@ export function CreateCategoryModal({ isOpen, onClose, onCreated }: CreateCatego
   }
 
   const SelectedIcon = getIcon(icon)
+
+  useEffect(() => {
+    if (!isOpen) return
+    setVisibility(defaultVisibility)
+    setPostAccess(inferredPostAccess)
+  }, [isOpen, defaultVisibility, inferredPostAccess])
 
   return (
     <Dialog open={isOpen} onOpenChange={v => !v && onClose()}>

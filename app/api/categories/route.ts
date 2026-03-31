@@ -5,6 +5,7 @@ import { connectDB } from '@/lib/mongodb'
 import { Category } from '@/models/Category'
 import { User } from '@/models/User'
 import { canReadCategory } from '@/lib/access-control'
+import { VIP_CATEGORIES } from '@/lib/categories'
 
 const DEFAULT_CATEGORIES = [
   { name: 'General', slug: 'general', icon: 'MessageSquare', description: 'Discusiones generales', visibility: 'public', postAccess: 'all' },
@@ -17,6 +18,15 @@ const DEFAULT_CATEGORIES = [
   { name: 'Trabajo', slug: 'trabajo', icon: 'Briefcase', description: 'Empleo y freelance', visibility: 'public', postAccess: 'all' },
 ]
 
+const DEFAULT_VIP_CATEGORIES = VIP_CATEGORIES.map(name => ({
+  name,
+  slug: name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''),
+  icon: 'Crown',
+  description: 'Sala VIP',
+  visibility: 'vip',
+  postAccess: 'vip',
+}))
+
 export async function GET() {
   try {
     await connectDB()
@@ -26,7 +36,7 @@ export async function GET() {
       ? await User.findById(viewerId).select('role vip vipExpiresAt').lean()
       : null
 
-    const categories = await Category.find().sort({ name: 1 }).lean()
+    let categories = await Category.find().sort({ name: 1 }).lean()
 
     if (categories.length === 0) {
       const { default: mongoose } = await import('mongoose')
@@ -41,6 +51,21 @@ export async function GET() {
         }, {
           headers: { 'Cache-Control': 'no-store' },
         })
+      }
+    }
+
+    {
+      const { default: mongoose } = await import('mongoose')
+      const db = mongoose.connection.db!
+      const vipSeeded = await db.collection('settings').findOne({ key: 'vip_categories_seeded' })
+      if (!vipSeeded) {
+        const existingNames = new Set(categories.map((cat: any) => cat.name))
+        const toInsert = DEFAULT_VIP_CATEGORIES.filter(cat => !existingNames.has(cat.name))
+        if (toInsert.length > 0) {
+          await Category.insertMany(toInsert)
+          categories = await Category.find().sort({ name: 1 }).lean()
+        }
+        await db.collection('settings').insertOne({ key: 'vip_categories_seeded', at: new Date() })
       }
     }
 
