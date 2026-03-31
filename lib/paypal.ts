@@ -1,4 +1,6 @@
-const BASE = process.env.PAYPAL_MODE === 'sandbox'
+const paypalMode = (process.env.PAYPAL_MODE ?? '').toLowerCase()
+const isProduction = process.env.NODE_ENV === 'production' || process.env.CONTEXT === 'production'
+const BASE = !isProduction && paypalMode === 'sandbox'
   ? 'https://api-m.sandbox.paypal.com'
   : 'https://api-m.paypal.com'
 

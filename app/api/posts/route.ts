@@ -160,7 +160,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No tienes permiso para publicar en esta categoria' }, { status: 403 })
     }
 
-    const pending   = needsModeration(mediaUrl || '', mediaType || '', content.trim(), title.trim())
+    const pending   = isAdmin ? false : needsModeration(mediaUrl || '', mediaType || '', content.trim(), title.trim())
     const status    = pending ? 'pending' : 'published'
 
     // Auto-lock posts in VIP categories

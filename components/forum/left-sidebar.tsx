@@ -25,7 +25,6 @@ import { useCurrentUser } from '@/hooks/use-current-user'
 import { useCategories, notifyCategories } from '@/hooks/use-categories'
 import { getIcon } from '@/lib/icon-map'
 import { CreateCategoryModal } from './create-category-modal'
-import { VoiceRoom } from './voice-room'
 import { VoiceChannels } from './voice-channels'
 
 interface LeftSidebarProps {
@@ -104,7 +103,7 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
     }
   }
 
-  const renderCategoryItem = (cat: any, accent = '#00fff560', textColor = 'inherit', showVoice = true) => {
+  const renderCategoryItem = (cat: any, accent = '#00fff560', textColor = 'inherit') => {
     const Icon = getIcon(cat.icon)
     const canManage = isAdmin || cat.createdBy === sessionId
 
@@ -145,7 +144,6 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
             </>
           )}
         </div>
-        {showVoice && <VoiceRoom categoryId={cat._id} categoryName={cat.name} />}
       </div>
     )
   }
@@ -281,7 +279,7 @@ export function LeftSidebar({ onCreatePost, className }: LeftSidebarProps) {
                   {vipCategories.length > 0 ? (
                     vipCategories.map(cat =>
                       canSeeVip
-                        ? renderCategoryItem(cat, '#ffaa0060', '#ffaa00a0', true)
+                        ? renderCategoryItem(cat, '#ffaa0060', '#ffaa00a0')
                         : null
                     )
                   ) : (

@@ -19,7 +19,7 @@ export async function GET() {
       .lean(),
     uid
       ? ProductRequest.find({ user: uid })
-          .select('product status createdAt')
+          .select('product status createdAt ticket')
           .sort({ createdAt: -1 })
           .lean()
       : [],
@@ -37,6 +37,7 @@ export async function GET() {
     liked: uid ? (product.likers ?? []).map(String).includes(uid) : false,
     requestStatus: requestMap.get(String(product._id))?.status ?? null,
     requestAt: requestMap.get(String(product._id))?.createdAt ?? null,
+    ticketId: requestMap.get(String(product._id))?.ticket ? String(requestMap.get(String(product._id))?.ticket) : null,
     likers: undefined,
   }))
 

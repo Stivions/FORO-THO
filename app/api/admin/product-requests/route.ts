@@ -18,6 +18,7 @@ export async function GET() {
   const requests = await ProductRequest.find()
     .populate('user', 'username displayName email avatar')
     .populate('product', 'title mediaUrl mimeType featured')
+    .populate('ticket', 'subject status')
     .sort({ status: 1, createdAt: -1 })
     .limit(200)
     .lean()
@@ -42,6 +43,7 @@ export async function PATCH(req: Request) {
   )
     .populate('user', 'username displayName email avatar')
     .populate('product', 'title mediaUrl mimeType featured')
+    .populate('ticket', 'subject status')
 
   return NextResponse.json({ request: requestDoc })
 }

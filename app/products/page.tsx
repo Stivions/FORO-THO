@@ -16,6 +16,7 @@ interface Product {
   featured?: boolean
   requestStatus?: string | null
   requestAt?: string | null
+  ticketId?: string | null
   uploadedBy?: {
     _id?: string
     username?: string
@@ -160,6 +161,10 @@ export default function ProductsPage() {
       router.push('/login')
       return
     }
+    if (product.ticketId) {
+      router.push(`/tickets/${product.ticketId}`)
+      return
+    }
     if (requestingId === product._id) return
 
     setRequestingId(product._id)
@@ -175,11 +180,15 @@ export default function ProductsPage() {
       })
       const data = await res.json()
       if (res.ok && data.request?._id) {
+        const ticketId = data.request.ticket?._id ?? data.request.ticket ?? data.ticket?._id ?? null
         setProducts(prev => prev.map(p =>
-          p._id === product._id ? { ...p, requestStatus: data.request.status, requestAt: data.request.createdAt } : p
+          p._id === product._id ? { ...p, requestStatus: data.request.status, requestAt: data.request.createdAt, ticketId } : p
         ))
         if (lightbox?._id === product._id) {
-          setLightbox(prev => prev ? { ...prev, requestStatus: data.request.status, requestAt: data.request.createdAt } : prev)
+          setLightbox(prev => prev ? { ...prev, requestStatus: data.request.status, requestAt: data.request.createdAt, ticketId } : prev)
+        }
+        if (ticketId) {
+          router.push(`/tickets/${ticketId}`)
         }
       }
     } finally {
@@ -264,7 +273,7 @@ export default function ProductsPage() {
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     : <ShoppingCart className="w-3.5 h-3.5" />
                   }
-                  {requestingId === lightbox._id ? 'ENVIANDO...' : lightbox.requestStatus ? `SOLICITUD ${lightbox.requestStatus.toUpperCase()}` : 'SOLICITAR'}
+                  {requestingId === lightbox._id ? 'ENVIANDO...' : lightbox.ticketId ? 'VER TICKET' : lightbox.requestStatus ? `SOLICITUD ${lightbox.requestStatus.toUpperCase()}` : 'ABRIR TICKET'}
                 </button>
               </div>
             </div>
@@ -516,7 +525,7 @@ export default function ProductsPage() {
                         ? <Loader2 className="w-3 h-3 animate-spin" />
                         : <ShoppingCart className="w-3 h-3" />
                       }
-                      {requestingId === p._id ? 'ENVIANDO...' : p.requestStatus ? `SOLICITUD ${p.requestStatus.toUpperCase()}` : 'SOLICITAR'}
+                      {requestingId === p._id ? 'ENVIANDO...' : p.ticketId ? 'VER TICKET' : p.requestStatus ? `SOLICITUD ${p.requestStatus.toUpperCase()}` : 'ABRIR TICKET'}
                     </button>
 
                     <p className="font-mono text-xs ml-auto" style={{ color: '#00fff530' }}>

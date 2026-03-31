@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCurrentUser } from '@/hooks/use-current-user'
@@ -66,9 +66,13 @@ interface PendingGroup {
 }
 
 export default function AdminPage() {
+  const USER_PAGE_SIZE = 10
   const router = useRouter()
   const { user, sessionId } = useCurrentUser()
   const [users,         setUsers]         = useState<AdminUser[]>([])
+  const [usersLoading,  setUsersLoading]  = useState(false)
+  const [totalUsers,    setTotalUsers]    = useState(0)
+  const [totalUserPages, setTotalUserPages] = useState(1)
   const [groups,        setGroups]        = useState<PendingGroup[]>([])
   const [loading,       setLoading]       = useState(true)
   const [saving,        setSaving]        = useState<string | null>(null)
@@ -134,39 +138,78 @@ export default function AdminPage() {
   const isSuperAdmin = (user as any)?.email === 'stevensanchezdev@gmail.com' && isAdmin
   const [resetting, setResetting] = useState(false)
 
-  useEffect(() => {
-    if (!sessionId) return
-    Promise.all([
-      fetch('/api/admin/users').then(r => r.json()),
-      fetch('/api/admin/groups').then(r => r.json()),
-    ]).then(([ud, gd]) => {
-      setUsers(ud.users ?? [])
-      setGroups(gd.groups ?? [])
-      const init: Record<string, {
-        role: string
-        badges: string[]
-        sellerVerified?: boolean
-        suspicious?: boolean
-        suspiciousReason?: string
-        vipAutoRenew?: boolean
-      }> = {}
-      for (const u of ud.users ?? []) {
-        init[u._id] = {
-          role: u.role,
-          badges: [...u.badges],
-          sellerVerified: u.sellerVerified,
-          suspicious: u.suspicious,
-          suspiciousReason: u.suspiciousReason ?? '',
-          vipAutoRenew: u.vipAutoRenew,
+  const mergeUserEdits = useCallback((incomingUsers: AdminUser[]) => {
+    setEdits(prev => {
+      const next = { ...prev }
+      for (const u of incomingUsers) {
+        next[u._id] = {
+          role: next[u._id]?.role ?? u.role,
+          badges: next[u._id]?.badges ?? [...u.badges],
+          sellerVerified: next[u._id]?.sellerVerified ?? u.sellerVerified,
+          suspicious: next[u._id]?.suspicious ?? u.suspicious,
+          suspiciousReason: next[u._id]?.suspiciousReason ?? (u.suspiciousReason ?? ''),
+          vipAutoRenew: next[u._id]?.vipAutoRenew ?? u.vipAutoRenew,
         }
       }
-      setEdits(init)
-    }).catch(() => {}).finally(() => setLoading(false))
+      return next
+    })
+  }, [])
+
+  const loadUsers = useCallback(async () => {
+    setUsersLoading(true)
+    try {
+      const qs = new URLSearchParams({
+        page: String(userPage),
+        limit: String(USER_PAGE_SIZE),
+      })
+      if (userFilters.q.trim()) qs.set('q', userFilters.q.trim())
+      if (userFilters.country.trim()) qs.set('country', userFilters.country.trim())
+      if (userFilters.ip.trim()) qs.set('ip', userFilters.ip.trim())
+      if (userFilters.device.trim()) qs.set('device', userFilters.device.trim())
+      if (userFilters.sameIpOnly) qs.set('sameIpOnly', '1')
+      if (userFilters.suspiciousOnly) qs.set('suspiciousOnly', '1')
+
+      const res = await fetch(`/api/admin/users?${qs.toString()}`)
+      const data = await res.json()
+      const nextUsers = data.users ?? []
+      setUsers(nextUsers)
+      setTotalUsers(data.total ?? nextUsers.length)
+      setTotalUserPages(data.totalPages ?? 1)
+      mergeUserEdits(nextUsers)
+    } catch {
+      setUsers([])
+      setTotalUsers(0)
+      setTotalUserPages(1)
+    } finally {
+      setUsersLoading(false)
+    }
+  }, [mergeUserEdits, userFilters.country, userFilters.device, userFilters.ip, userFilters.q, userFilters.sameIpOnly, userFilters.suspiciousOnly, userPage])
+
+  useEffect(() => {
+    if (!sessionId) return
+    fetch('/api/admin/groups')
+      .then(r => r.json())
+      .then(gd => {
+        setGroups(gd.groups ?? [])
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [sessionId])
 
   useEffect(() => {
     setUserPage(1)
   }, [userFilters.q, userFilters.country, userFilters.ip, userFilters.device, userFilters.sameIpOnly, userFilters.suspiciousOnly])
+
+  useEffect(() => {
+    if (!sessionId || tab !== 'users') return
+    loadUsers()
+  }, [sessionId, tab, loadUsers])
+
+  useEffect(() => {
+    if (userPage > totalUserPages) {
+      setUserPage(totalUserPages)
+    }
+  }, [userPage, totalUserPages])
 
   const handleGroupAction = async (groupId: string, action: 'approve' | 'reject') => {
     setActioningGroup(groupId)
@@ -524,32 +567,7 @@ export default function AdminPage() {
     }
   }
 
-  const filteredUsers = users.filter(u => {
-    const q = userFilters.q.trim().toLowerCase()
-    const matchesQ = !q || [
-      u.username,
-      u.displayName,
-      u.email,
-      u.lastKnownIp,
-      u.lastLogin?.country,
-      u.lastLogin?.city,
-      u.lastLogin?.device,
-      u.lastLogin?.browser,
-    ].join(' ').toLowerCase().includes(q)
-
-    const matchesCountry = !userFilters.country.trim() || (u.lastLogin?.country || '').toLowerCase().includes(userFilters.country.trim().toLowerCase())
-    const matchesIp = !userFilters.ip.trim() || (u.lastKnownIp || '').includes(userFilters.ip.trim())
-    const matchesDevice = !userFilters.device.trim() || [u.lastLogin?.device, u.lastLogin?.browser, u.lastLogin?.os].join(' ').toLowerCase().includes(userFilters.device.trim().toLowerCase())
-    const matchesSameIp = !userFilters.sameIpOnly || (u.sameIpCount ?? 0) > 0
-    const matchesSuspicious = !userFilters.suspiciousOnly || u.suspicious === true
-
-    return matchesQ && matchesCountry && matchesIp && matchesDevice && matchesSameIp && matchesSuspicious
-  })
-
-  const USERS_PER_PAGE = 10
-  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE))
   const safeUserPage = Math.min(userPage, totalUserPages)
-  const currentUsers = filteredUsers.slice((safeUserPage - 1) * USERS_PER_PAGE, safeUserPage * USERS_PER_PAGE)
 
   return (
     <div className="min-h-screen bg-background">
@@ -592,11 +610,11 @@ export default function AdminPage() {
             )}
           </button>
           <button
-            onClick={() => setTab('users')}
+            onClick={() => { setTab('users'); setUserPage(1) }}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${tab === 'users' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
           >
             <Shield className="h-4 w-4" />
-            Usuarios ({users.length})
+            Usuarios ({totalUsers || users.length})
           </button>
           <button
             onClick={() => { setTab('posts'); loadPendingPosts() }}
@@ -728,7 +746,7 @@ export default function AdminPage() {
         ) : tab === 'users' ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <p className="text-sm text-muted-foreground">{filteredUsers.length} / {users.length} usuarios visibles</p>
+              <p className="text-sm text-muted-foreground">Mostrando {users.length} de {totalUsers} usuarios</p>
               <Button size="sm" variant="outline" onClick={() => exportCsv('users')} className="gap-2">
                 <Download className="h-4 w-4" />CSV Usuarios
               </Button>
@@ -749,7 +767,13 @@ export default function AdminPage() {
                 Solo sospechosos
               </label>
             </div>
-            {currentUsers.map(u => {
+            {usersLoading ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : users.length === 0 ? (
+              <p className="text-center py-10 text-sm text-muted-foreground">No hay usuarios para esos filtros</p>
+            ) : users.map(u => {
               const edit = edits[u._id] ?? {
                 role: u.role,
                 badges: u.badges,
@@ -990,7 +1014,7 @@ export default function AdminPage() {
                 </Card>
               )
             })}
-            {filteredUsers.length > USERS_PER_PAGE && (
+            {totalUsers > USER_PAGE_SIZE && (
               <div className="flex items-center justify-center gap-2 pt-2">
                 <Button size="sm" variant="outline" disabled={safeUserPage <= 1} onClick={() => setUserPage(p => Math.max(1, p - 1))}>
                   Anterior
@@ -1093,6 +1117,11 @@ export default function AdminPage() {
                       Usuario: {request.user?.displayName || request.user?.username || 'usuario'} · {request.user?.email}
                     </p>
                     {request.message && <p className="text-sm">{request.message}</p>}
+                    {request.ticket?._id && (
+                      <Link href={`/tickets/${request.ticket._id}`} className="text-xs font-mono text-cyan-400 hover:text-cyan-300">
+                        Ver ticket: {request.ticket.subject ?? request.ticket._id}
+                      </Link>
+                    )}
                     <div className="flex gap-2 flex-wrap">
                       {['pending', 'reviewing', 'approved', 'rejected', 'fulfilled'].map(status => (
                         <Button key={status} size="sm" variant="outline" onClick={() => updateProductRequest(request._id, status)}>

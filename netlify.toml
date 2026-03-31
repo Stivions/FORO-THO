@@ -6,6 +6,7 @@
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
   NEXTAUTH_URL = "https://forosas.netlify.app"
+  PAYPAL_MODE = "live"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -51,6 +51,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const [error,        setError]        = useState('')
   const [vtResult,     setVtResult]     = useState<any>(null)
   const [vipOnly,      setVipOnly]      = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const driveEmbed = mediaMode === 'drive' ? toDriveEmbed(driveLink) : null
   const driveValid  = driveEmbed !== null
@@ -75,6 +76,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) handleFilePick(file)
+    e.currentTarget.value = ''
   }
 
   const removeMedia = () => {
@@ -142,6 +144,8 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
     }
   }
 
+  const needsReview = !isAdmin && (mediaMode !== 'none' || /https?:\/\//i.test(content) || /https?:\/\//i.test(title))
+
   return (
     <Dialog open={isOpen} onOpenChange={v => !v && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -172,6 +176,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
               onDragLeave={e => { e.preventDefault(); setIsDragging(false) }}
               onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
               className={cn(
                 'border-2 border-dashed rounded-lg p-6 transition-colors text-center',
                 isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
@@ -180,14 +185,12 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
               <Upload className="h-8 w-8 text-muted-foreground mb-2 mx-auto" />
               <p className="text-sm text-foreground mb-1">Arrastra aquí o elige un archivo</p>
               <p className="text-xs text-muted-foreground mb-3">Imágenes, PDFs, videos, ZIPs… hasta 500 MB</p>
+              <input ref={fileInputRef} type="file" accept="*/*" onChange={handleFileSelect} className="hidden" />
               <div className="flex gap-2 justify-center flex-wrap">
-                <label>
-                  <input type="file" accept="*/*" onChange={handleFileSelect} className="hidden" />
-                  <Button variant="outline" size="sm" asChild>
-                    <span><Upload className="h-4 w-4 mr-2" />Elegir archivo</span>
-                  </Button>
-                </label>
-                <Button variant="outline" size="sm" onClick={() => setMediaMode('drive')}>
+                <Button variant="outline" size="sm" type="button" onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}>
+                  <Upload className="h-4 w-4 mr-2" />Elegir archivo
+                </Button>
+                <Button variant="outline" size="sm" type="button" onClick={e => { e.stopPropagation(); setMediaMode('drive') }}>
                   <Link2 className="h-4 w-4 mr-2" />Link de Drive
                 </Button>
               </div>
@@ -323,7 +326,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
           )}
 
           {/* Moderation warning */}
-          {(mediaMode !== 'none' || /https?:\/\//i.test(content) || /https?:\/\//i.test(title)) && (
+          {needsReview && (
             <div className="flex items-start gap-2 p-3 rounded text-xs font-mono" style={{ background: '#ff950010', border: '1px solid #ff950040', color: '#ff9500' }}>
               <span>⚠</span>
               <span>Este post contiene archivos, imágenes o links y <strong>requiere aprobación de un administrador</strong> antes de publicarse. Los posts de solo texto se publican al instante.</span>
@@ -340,7 +343,7 @@ export function CreatePostModal({ isOpen, onClose, onPostCreated }: CreatePostMo
             >
               {isUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Subiendo archivo...</>
                : isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando...</>
-               : (mediaMode !== 'none' || /https?:\/\//i.test(content) || /https?:\/\//i.test(title))
+               : needsReview
                  ? '📨 Enviar para revisión'
                  : '🚀 Publicar'}
             </Button>
