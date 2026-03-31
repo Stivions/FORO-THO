@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
-import { LoginEvent } from '@/models/LoginEvent'
 
 export const dynamic = 'force-dynamic'
 
@@ -120,65 +119,27 @@ export async function GET(req: NextRequest) {
     .limit(limit)
     .lean() as any[]
 
-  const userIds = users.map(user => user._id)
   const pagedIps = Array.from(
     new Set(users.map(user => String(user.lastKnownIp || '').trim()).filter(Boolean))
   )
 
-  const [loginGroups, ipGroups] = await Promise.all([
-    userIds.length > 0
-      ? LoginEvent.aggregate([
-          { $match: { user: { $in: userIds } } },
-          { $sort: { createdAt: -1 } },
-          {
-            $group: {
-              _id: '$user',
-              recentLogins: {
-                $push: {
-                  _id: '$_id',
-                  ip: '$ip',
-                  browser: '$browser',
-                  os: '$os',
-                  device: '$device',
-                  country: '$country',
-                  city: '$city',
-                  authMethod: '$authMethod',
-                  createdAt: '$createdAt',
-                },
-              },
-            },
-          },
-          { $project: { recentLogins: { $slice: ['$recentLogins', 3] } } },
-        ])
-      : Promise.resolve([]),
-    pagedIps.length > 0
-      ? User.aggregate([
-          { $match: { lastKnownIp: { $in: pagedIps } } },
-          { $group: { _id: '$lastKnownIp', userIds: { $push: '$_id' }, count: { $sum: 1 } } },
-        ])
-      : Promise.resolve([]),
-  ]) as any[]
+  const ipGroups = pagedIps.length > 0
+    ? await User.aggregate([
+        { $match: { lastKnownIp: { $in: pagedIps } } },
+        { $group: { _id: '$lastKnownIp', count: { $sum: 1 } } },
+      ])
+    : []
 
-  const loginMap = new Map<string, any[]>()
-  for (const group of loginGroups) {
-    loginMap.set(String(group._id), group.recentLogins ?? [])
-  }
-
-  const ipMap = new Map<string, { count: number; userIds: string[] }>()
+  const ipMap = new Map<string, number>()
   for (const group of ipGroups) {
-    ipMap.set(String(group._id), {
-      count: Number(group.count ?? 0),
-      userIds: (group.userIds ?? []).map((id: any) => String(id)),
-    })
+    ipMap.set(String(group._id), Number(group.count ?? 0))
   }
 
   const enriched = users.map(user => {
-    const ipInfo = ipMap.get(String(user.lastKnownIp || ''))
+    const sameIpCount = Math.max((ipMap.get(String(user.lastKnownIp || '')) ?? 0) - 1, 0)
     return {
       ...user,
-      recentLogins: loginMap.get(String(user._id)) ?? [],
-      sameIpUsers: ipInfo ? ipInfo.userIds.filter(id => id !== String(user._id)) : [],
-      sameIpCount: ipInfo ? Math.max(ipInfo.count - 1, 0) : 0,
+      sameIpCount,
     }
   })
 

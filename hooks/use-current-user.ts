@@ -25,7 +25,7 @@ let _cache: CurrentUser | null = null
 let _cacheAt = 0
 let _inflight: Promise<CurrentUser | null> | null = null
 
-const CACHE_TTL_MS = 15_000
+const CACHE_TTL_MS = 60_000
 
 async function fetchCurrentUser(force = false): Promise<CurrentUser | null> {
   const fresh = Date.now() - _cacheAt < CACHE_TTL_MS

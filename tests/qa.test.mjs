@@ -5,7 +5,7 @@
 import { test, describe, before } from 'node:test'
 import assert from 'node:assert/strict'
 
-const BASE = 'http://localhost:3002'
+const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3000'
 
 // Shared state across tests
 const state = {

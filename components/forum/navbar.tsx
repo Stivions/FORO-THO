@@ -40,7 +40,7 @@ export function Navbar({ onMenuToggle, isMobileMenuOpen }: NavbarProps) {
     await signOut({ redirect: false })
 
     if (typeof window !== 'undefined') {
-      window.location.href = 'https://forosas.netlify.app/login'
+      window.location.assign('/login')
     }
   }
 

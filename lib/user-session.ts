@@ -12,6 +12,8 @@ export async function touchUserSession(session: any, req?: Request) {
   const sessionId = getSessionIdFromSession(session)
   if (!sessionId) return
 
+  const now = new Date()
+  const minLastSeenAt = new Date(now.getTime() - 5 * 60 * 1000)
   const update: Record<string, unknown> = { lastSeenAt: new Date() }
   if (req) {
     const headers = req.headers
@@ -21,7 +23,14 @@ export async function touchUserSession(session: any, req?: Request) {
   }
 
   await UserSession.updateOne(
-    { sessionId, revokedAt: null },
+    {
+      sessionId,
+      revokedAt: null,
+      $or: [
+        { lastSeenAt: { $lt: minLastSeenAt } },
+        { lastSeenAt: { $exists: false } },
+      ],
+    },
     { $set: update }
   ).catch(() => {})
 }

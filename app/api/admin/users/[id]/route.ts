@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { User } from '@/models/User'
+import { LoginEvent } from '@/models/LoginEvent'
 
 async function isAdmin(session: any): Promise<boolean> {
   if (!session?.user) return false
@@ -21,9 +22,28 @@ export async function GET(
   }
 
   const { id } = await params
-  const user = await User.findById(id).select('-password')
+  const user = await User.findById(id).select('-password').lean() as any
   if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json({ user })
+
+  const [recentLogins, sameIpUsers] = await Promise.all([
+    LoginEvent.find({ user: user._id })
+      .select('ip browser os device country city authMethod createdAt')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean(),
+    user.lastKnownIp
+      ? User.find({
+          _id: { $ne: user._id },
+          lastKnownIp: user.lastKnownIp,
+        })
+          .select('username displayName email role banned sellerVerified suspicious')
+          .sort({ lastLoginAt: -1, createdAt: -1 })
+          .limit(10)
+          .lean()
+      : [],
+  ])
+
+  return NextResponse.json({ user, recentLogins, sameIpUsers })
 }
 
 export async function PUT(

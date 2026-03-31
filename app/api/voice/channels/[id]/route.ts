@@ -21,6 +21,43 @@ async function isOwnerOrAdmin(session: any, channel: any): boolean {
   return role === 'admin' || role === 'moderator' || channel.owner.toString() === uid
 }
 
+export async function GET(_req: Request, { params }: Ctx) {
+  const session = await getServerSession(authOptions)
+  if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+  const { id } = await params
+  await connectDB()
+
+  const channel = await VoiceChannel.findById(id)
+    .populate('owner', 'username displayName avatar')
+    .lean() as any
+
+  if (!channel) return NextResponse.json({ error: 'Canal no encontrado' }, { status: 404 })
+
+  try {
+    const participants = await svc.listParticipants(channel.roomId)
+    return NextResponse.json({
+      channel: {
+        ...channel,
+        participantCount: participants.length,
+        participants: participants.map((p: any) => ({
+          identity: p.identity,
+          name: p.name,
+          isMicMuted: p.tracks.find((t: any) => t.source === 2)?.muted ?? true,
+        })),
+      },
+    })
+  } catch {
+    return NextResponse.json({
+      channel: {
+        ...channel,
+        participantCount: 0,
+        participants: [],
+      },
+    })
+  }
+}
+
 export async function PATCH(req: Request, { params }: Ctx) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })

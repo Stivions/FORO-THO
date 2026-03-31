@@ -12,7 +12,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BADGES, ALL_BADGE_IDS, type BadgeId } from '@/lib/badges'
 import { Shield, ArrowLeft, Save, Loader2, Users, Check, X, Clock, Trash2, Megaphone, Eye, FileWarning, ExternalLink, Gift, Wallet, MessageSquare, Search, Download, ShieldAlert, Package, History } from 'lucide-react'
 
-const AdminUsersPanel = dynamic(() => import('@/components/admin/admin-users-panel').then(mod => mod.AdminUsersPanel))
+const AdminUsersPanel = dynamic(
+  () => import('@/components/admin/admin-users-panel').then(mod => mod.AdminUsersPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex justify-center py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  }
+)
 
 interface AdminUser {
   _id: string
@@ -69,7 +79,7 @@ interface PendingGroup {
 }
 
 export default function AdminPage() {
-  const USER_PAGE_SIZE = 10
+  const USER_PAGE_SIZE = 8
   const router = useRouter()
   const { user, sessionId } = useCurrentUser()
   const [users,         setUsers]         = useState<AdminUser[]>([])

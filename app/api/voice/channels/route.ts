@@ -13,8 +13,10 @@ const svc = new RoomServiceClient(
   process.env.LIVEKIT_API_SECRET!
 )
 
-export async function GET() {
+export async function GET(req: Request) {
   await connectDB()
+  const { searchParams } = new URL(req.url)
+  const includeParticipants = searchParams.get('includeParticipants') === '1'
   const channels = await VoiceChannel.find()
     .populate('owner', 'username displayName avatar')
     .sort({ createdAt: -1 })
@@ -28,11 +30,13 @@ export async function GET() {
         return {
           ...ch,
           participantCount: parts.length,
-          participants: parts.map((p: any) => ({
-            identity:   p.identity,
-            name:       p.name,
-            isMicMuted: p.tracks.find((t: any) => t.source === 2)?.muted ?? true,
-          })),
+          participants: includeParticipants
+            ? parts.map((p: any) => ({
+                identity: p.identity,
+                name: p.name,
+                isMicMuted: p.tracks.find((t: any) => t.source === 2)?.muted ?? true,
+              }))
+            : [],
         }
       } catch {
         return { ...ch, participantCount: 0, participants: [] }

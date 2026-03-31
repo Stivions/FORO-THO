@@ -44,6 +44,7 @@ export function VoiceChannels() {
   const [mutingId,   setMutingId]   = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
+  const [detailLoadingById, setDetailLoadingById] = useState<Record<string, boolean>>({})
 
   const uid  = (session?.user as any)?.id  ?? ''
   const role = (session?.user as any)?.role ?? ''
@@ -51,7 +52,7 @@ export function VoiceChannels() {
   const canManage = (ch: Channel) =>
     role === 'admin' || role === 'moderator' || ch.owner._id === uid
 
-  // ── Fetch channels + participants every 5s ──
+  // ── Fetch lightweight channel summaries only when open ──
   const fetchChannels = useCallback(async () => {
     try {
       const res = await fetch('/api/voice/channels')
@@ -60,10 +61,26 @@ export function VoiceChannels() {
   }, [])
 
   useEffect(() => {
+    if (!expanded) return
     fetchChannels()
-    const t = setInterval(fetchChannels, 5000)
+    const t = setInterval(fetchChannels, 15000)
     return () => clearInterval(t)
-  }, [fetchChannels])
+  }, [expanded, fetchChannels])
+
+  const loadChannelDetails = useCallback(async (channelId: string) => {
+    if (detailLoadingById[channelId]) return
+
+    setDetailLoadingById(prev => ({ ...prev, [channelId]: true }))
+    try {
+      const res = await fetch(`/api/voice/channels/${channelId}`)
+      const data = await res.json()
+      if (res.ok && data.channel) {
+        setChannels(prev => prev.map(ch => ch._id === channelId ? data.channel : ch))
+      }
+    } finally {
+      setDetailLoadingById(prev => ({ ...prev, [channelId]: false }))
+    }
+  }, [detailLoadingById])
 
   // ── Join a channel ──
   const handleJoin = async (ch: Channel) => {
@@ -335,7 +352,11 @@ export function VoiceChannels() {
                       )}
                       {isMine && (
                         <button
-                          onClick={() => setManagingId(isManaging ? null : ch._id)}
+                          onClick={() => {
+                            const nextId = isManaging ? null : ch._id
+                            if (nextId) void loadChannelDetails(nextId)
+                            setManagingId(nextId)
+                          }}
                           title="Gestionar canal"
                           className="p-0.5 rounded transition-colors"
                           style={{ color: isManaging ? '#00fff5' : '#00fff540' }}
@@ -390,6 +411,12 @@ export function VoiceChannels() {
                       <p className="text-[10px] font-mono mb-1" style={{ color: '#00fff550', letterSpacing: '0.1em' }}>
                         PARTICIPANTES ({ch.participantCount}/{ch.maxParticipants})
                       </p>
+                      {detailLoadingById[ch._id] && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono mb-1" style={{ color: '#00fff550' }}>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Cargando participantes...
+                        </div>
+                      )}
                       {ch.participants.length === 0 ? (
                         <p className="text-[10px] font-mono" style={{ color: '#00fff530' }}>Sala vacía</p>
                       ) : (

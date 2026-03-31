@@ -1,7 +1,7 @@
 import { test, describe, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 
-const BASE = 'http://localhost:3002'
+const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3000'
 const testUser = {
   username: `testuser_${Date.now()}`,
   email: `test_${Date.now()}@test.com`,

@@ -8,6 +8,30 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Loader2, Save } from 'lucide-react'
 import { BADGES, ALL_BADGE_IDS } from '@/lib/badges'
 
+interface UserDetail {
+  recentLogins: Array<{
+    _id: string
+    ip?: string
+    browser?: string
+    os?: string
+    device?: string
+    country?: string
+    city?: string
+    authMethod?: string
+    createdAt: string
+  }>
+  sameIpUsers: Array<{
+    _id: string
+    username: string
+    displayName?: string
+    email?: string
+    role?: string
+    banned?: boolean
+    sellerVerified?: boolean
+    suspicious?: boolean
+  }>
+}
+
 interface AdminUsersPanelProps {
   usersLoading: boolean
   users: any[]
@@ -56,6 +80,37 @@ export function AdminUsersPanel({
   setUserPage,
 }: AdminUsersPanelProps) {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
+  const [detailsByUserId, setDetailsByUserId] = useState<Record<string, UserDetail>>({})
+  const [detailLoadingByUserId, setDetailLoadingByUserId] = useState<Record<string, boolean>>({})
+
+  const loadUserDetails = async (userId: string) => {
+    if (detailsByUserId[userId] || detailLoadingByUserId[userId]) return
+
+    setDetailLoadingByUserId(prev => ({ ...prev, [userId]: true }))
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`)
+      const data = await res.json()
+      if (res.ok) {
+        setDetailsByUserId(prev => ({
+          ...prev,
+          [userId]: {
+            recentLogins: data.recentLogins ?? [],
+            sameIpUsers: data.sameIpUsers ?? [],
+          },
+        }))
+      }
+    } finally {
+      setDetailLoadingByUserId(prev => ({ ...prev, [userId]: false }))
+    }
+  }
+
+  const toggleExpanded = (userId: string) => {
+    setExpandedUserId(prev => {
+      const next = prev === userId ? null : userId
+      if (next) void loadUserDetails(next)
+      return next
+    })
+  }
 
   if (usersLoading) {
     return (
@@ -90,6 +145,8 @@ export function AdminUsersPanel({
           (edit.suspiciousReason ?? '') !== (u.suspiciousReason ?? '') ||
           (edit.vipAutoRenew ?? false) !== (u.vipAutoRenew ?? false)
         const isExpanded = expandedUserId === u._id
+        const detail = detailsByUserId[u._id]
+        const isLoadingDetail = detailLoadingByUserId[u._id] === true
 
         return (
           <Card key={u._id} className="bg-card border-border">
@@ -158,6 +215,30 @@ export function AdminUsersPanel({
                           {[u.lastLogin?.device, u.lastLogin?.browser, u.lastLogin?.os, u.lastLogin?.country, u.lastLogin?.city].filter(Boolean).join(' · ') || 'Sin detalle de dispositivo'}
                         </span>
                       </div>
+
+                      {isLoadingDetail && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Cargando detalles del usuario...
+                        </div>
+                      )}
+
+                      {(detail?.sameIpUsers?.length ?? 0) > 0 && (
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">Cuentas con la misma IP</p>
+                          {detail!.sameIpUsers.map(other => (
+                            <div key={other._id} className="text-[11px] font-mono" style={{ color: '#ff9500cc' }}>
+                              @{other.username}
+                              {other.displayName ? ` (${other.displayName})` : ''}
+                              {other.role ? ` · ${other.role}` : ''}
+                              {other.email ? ` · ${other.email}` : ''}
+                              {other.banned ? ' · baneado' : ''}
+                              {other.sellerVerified ? ' · vendedor' : ''}
+                              {other.suspicious ? ' · sospechoso' : ''}
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {banConfirm === u._id && !u.banned && (
                         <div className="p-3 rounded space-y-2" style={{ background: '#ff003c08', border: '1px solid #ff003c30' }}>
@@ -235,10 +316,10 @@ export function AdminUsersPanel({
                         })}
                       </div>
 
-                      {(u.recentLogins?.length ?? 0) > 0 && (
+                      {(detail?.recentLogins?.length ?? 0) > 0 && (
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">Ultimos accesos</p>
-                          {u.recentLogins.map((login: any) => (
+                          {detail!.recentLogins.map((login: any) => (
                             <div key={login._id} className="text-[11px] font-mono" style={{ color: '#00fff530' }}>
                               {new Date(login.createdAt).toLocaleString('es-ES')} · {[
                                 login.ip,
@@ -257,7 +338,7 @@ export function AdminUsersPanel({
                 </div>
 
                 <div className="flex flex-col gap-2 shrink-0">
-                  <Button size="sm" variant="outline" onClick={() => setExpandedUserId(prev => prev === u._id ? null : u._id)}>
+                  <Button size="sm" variant="outline" onClick={() => toggleExpanded(u._id)}>
                     {isExpanded ? 'Ocultar' : 'Detalles'}
                   </Button>
                   <Button
@@ -289,6 +370,9 @@ export function AdminUsersPanel({
                         size="sm"
                         variant="outline"
                         onClick={() => {
+                          if (expandedUserId !== u._id) {
+                            void loadUserDetails(u._id)
+                          }
                           setExpandedUserId(u._id)
                           setBanConfirm(banConfirm === u._id ? null : u._id)
                         }}

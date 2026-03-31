@@ -4,7 +4,7 @@ import { readFileSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
-const BASE = 'http://localhost:3001'
+const BASE = process.env.TEST_BASE_URL ?? 'http://localhost:3000'
 
 // ---------- helpers ----------
 function parseCookies(headers) {
