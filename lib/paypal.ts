@@ -1,10 +1,16 @@
 const paypalMode = (process.env.PAYPAL_MODE ?? '').toLowerCase()
-const isProduction = process.env.NODE_ENV === 'production' || process.env.CONTEXT === 'production'
-const BASE = !isProduction && paypalMode === 'sandbox'
+const BASE = paypalMode === 'sandbox'
   ? 'https://api-m.sandbox.paypal.com'
   : 'https://api-m.paypal.com'
 
+function assertPayPalConfig() {
+  if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+    throw new Error('PayPal no configurado (PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET)')
+  }
+}
+
 async function getToken(): Promise<string> {
+  assertPayPalConfig()
   const res = await fetch(`${BASE}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
@@ -13,7 +19,11 @@ async function getToken(): Promise<string> {
     },
     body: 'grant_type=client_credentials',
   })
-  const d = await res.json()
+  const d = await res.json().catch(() => ({} as any))
+  if (!res.ok || !d?.access_token) {
+    const detail = d?.error_description || d?.message || d?.error || 'No se pudo autenticar con PayPal'
+    throw new Error(detail)
+  }
   return d.access_token
 }
 
@@ -33,7 +43,12 @@ export async function createOrder(returnBase: string) {
       },
     }),
   })
-  return res.json()
+  const data = await res.json().catch(() => ({} as any))
+  if (!res.ok) {
+    const detail = data?.message || data?.name || 'Error al crear orden PayPal'
+    throw new Error(detail)
+  }
+  return data
 }
 
 export async function captureOrder(orderId: string) {
@@ -42,7 +57,12 @@ export async function captureOrder(orderId: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
   })
-  return res.json()
+  const data = await res.json().catch(() => ({} as any))
+  if (!res.ok) {
+    const detail = data?.message || data?.name || 'Error al capturar orden PayPal'
+    throw new Error(detail)
+  }
+  return data
 }
 
 export async function createDonationOrder(returnBase: string, amount: number) {
@@ -61,5 +81,10 @@ export async function createDonationOrder(returnBase: string, amount: number) {
       },
     }),
   })
-  return res.json()
+  const data = await res.json().catch(() => ({} as any))
+  if (!res.ok) {
+    const detail = data?.message || data?.name || 'Error al crear orden PayPal'
+    throw new Error(detail)
+  }
+  return data
 }

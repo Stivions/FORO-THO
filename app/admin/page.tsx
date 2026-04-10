@@ -43,6 +43,8 @@ interface AdminUser {
   reputationScore?: number
   reputationVotes?: number
   vipAutoRenew?: boolean
+  vip?: boolean
+  vipExpiresAt?: string | null
   loginCount?: number
   lastLoginAt?: string
   lastLogin?: {
@@ -97,6 +99,8 @@ export default function AdminPage() {
     suspicious?: boolean
     suspiciousReason?: string
     vipAutoRenew?: boolean
+    vip?: boolean
+    vipExpiresAt?: string | null
   }>>({})
   const [tab,           setTab]           = useState<'users' | 'groups' | 'announce' | 'posts' | 'giveaway' | 'tickets' | 'accesses' | 'reports' | 'products'>('groups')
   const [pendingPosts,  setPendingPosts]  = useState<any[]>([])
@@ -118,7 +122,15 @@ export default function AdminPage() {
     ctaUrl:     '',
   })
   const [announcing,   setAnnouncing]   = useState(false)
-  const [announceResult, setAnnounceResult] = useState<{ sent?: number; error?: string } | null>(null)
+  const [announceResult, setAnnounceResult] = useState<{
+    sent?: number
+    total?: number
+    failed?: number
+    errors?: string[]
+    invalidCount?: number
+    invalidSample?: string[]
+    error?: string
+  } | null>(null)
   const [showPreview, setShowPreview]   = useState(false)
 
   // Giveaway state
@@ -162,6 +174,8 @@ export default function AdminPage() {
           suspicious: next[u._id]?.suspicious ?? u.suspicious,
           suspiciousReason: next[u._id]?.suspiciousReason ?? (u.suspiciousReason ?? ''),
           vipAutoRenew: next[u._id]?.vipAutoRenew ?? u.vipAutoRenew,
+          vip: next[u._id]?.vip ?? u.vip,
+          vipExpiresAt: next[u._id]?.vipExpiresAt ?? u.vipExpiresAt ?? null,
         }
       }
       return next
@@ -310,8 +324,26 @@ export default function AdminPage() {
         }),
       })
       const data = await res.json()
-      if (res.ok) setAnnounceResult({ sent: data.sent })
-      else setAnnounceResult({ error: data.error })
+      if (res.ok) {
+        setAnnounceResult({
+          sent: data.sent,
+          total: data.total,
+          failed: data.failed,
+          errors: data.errors,
+          invalidCount: data.invalidCount,
+          invalidSample: data.invalidSample,
+        })
+      } else {
+        setAnnounceResult({
+          error: data.error ?? 'Error al enviar',
+          sent: data.sent,
+          total: data.total,
+          failed: data.failed,
+          errors: data.errors,
+          invalidCount: data.invalidCount,
+          invalidSample: data.invalidSample,
+        })
+      }
     } finally {
       setAnnouncing(false)
     }
@@ -1416,20 +1448,40 @@ export default function AdminPage() {
               )}
 
               {/* Result message */}
-              {announceResult && (
-                <div
-                  className="p-3 rounded font-mono text-sm"
-                  style={{
-                    background: announceResult.error ? '#ff003c10' : '#00fff510',
-                    border: `1px solid ${announceResult.error ? '#ff003c40' : '#00fff540'}`,
-                    color: announceResult.error ? '#ff003c' : '#00fff5',
-                  }}
-                >
-                  {announceResult.error
-                    ? `// ERROR: ${announceResult.error.toUpperCase()}`
-                    : `// OK: EMAIL ENVIADO A ${announceResult.sent} USUARIO${(announceResult.sent ?? 0) !== 1 ? 'S' : ''}`}
-                </div>
-              )}
+              {announceResult && (() => {
+                const sent = announceResult.sent ?? 0
+                const total = announceResult.total ?? sent
+                const failed = announceResult.failed ?? 0
+                const invalidCount = announceResult.invalidCount ?? 0
+                const hasError = Boolean(announceResult.error) || failed > 0 || invalidCount > 0
+
+                return (
+                  <div
+                    className="p-3 rounded font-mono text-sm"
+                    style={{
+                      background: hasError ? '#ff003c10' : '#00fff510',
+                      border: `1px solid ${hasError ? '#ff003c40' : '#00fff540'}`,
+                      color: hasError ? '#ff003c' : '#00fff5',
+                    }}
+                  >
+                    {announceResult.error
+                      ? `// ERROR: ${announceResult.error.toUpperCase()}`
+                      : (failed > 0 || invalidCount > 0)
+                        ? `// PARCIAL: ENVIADO ${sent}/${total}. FALLARON ${failed}. INVALIDOS ${invalidCount}.`
+                        : `// OK: EMAIL ENVIADO A ${sent} USUARIO${sent !== 1 ? 'S' : ''}`}
+                    {announceResult.errors?.length ? (
+                      <div className="mt-1 text-[11px]" style={{ color: hasError ? '#ff003c' : '#00fff5' }}>
+                        {`DETALLES: ${announceResult.errors.slice(0, 2).join(' | ')}`}
+                      </div>
+                    ) : null}
+                    {(announceResult.invalidSample?.length ?? 0) > 0 ? (
+                      <div className="mt-1 text-[11px]" style={{ color: hasError ? '#ff003c' : '#00fff5' }}>
+                        {`INVALIDOS: ${announceResult.invalidSample!.slice(0, 5).join(' | ')}`}
+                      </div>
+                    ) : null}
+                  </div>
+                )
+              })()}
 
               {/* Send button */}
               <button

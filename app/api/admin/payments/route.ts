@@ -46,9 +46,12 @@ export async function PATCH(req: Request) {
       await payment.save()
 
       const thirtyDays = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      await User.findByIdAndUpdate(payment.user, {
-        $set: { vip: true, vipExpiresAt: thirtyDays },
-      })
+      const userId = (payment.user as any)?._id ?? payment.user
+      if (userId) {
+        await User.findByIdAndUpdate(userId, {
+          $set: { vip: true, vipExpiresAt: thirtyDays },
+        })
+      }
 
       // Send emails asynchronously (don't block response)
       sendVipEmails(payment, thirtyDays).catch(err => console.error('Email error:', err))

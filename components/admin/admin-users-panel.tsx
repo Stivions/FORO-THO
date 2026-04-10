@@ -83,6 +83,28 @@ export function AdminUsersPanel({
   const [detailsByUserId, setDetailsByUserId] = useState<Record<string, UserDetail>>({})
   const [detailLoadingByUserId, setDetailLoadingByUserId] = useState<Record<string, boolean>>({})
 
+  const formatDateInput = (value?: string | Date | null) => {
+    if (!value) return ''
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return ''
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  }
+
+  const addVipDays = (userId: string, days: number, current?: string | Date | null) => {
+    const base = typeof current === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(current)
+      ? new Date(`${current}T00:00:00`)
+      : current
+        ? new Date(current)
+        : new Date()
+    const start = Number.isNaN(base.getTime()) ? new Date() : base
+    const next = new Date(start.getTime() + days * 24 * 60 * 60 * 1000)
+    setUserFlag(userId, { vip: true, vipExpiresAt: formatDateInput(next) })
+  }
+
   const loadUserDetails = async (userId: string) => {
     if (detailsByUserId[userId] || detailLoadingByUserId[userId]) return
 
@@ -134,6 +156,8 @@ export function AdminUsersPanel({
           suspicious: u.suspicious,
           suspiciousReason: u.suspiciousReason ?? '',
           vipAutoRenew: u.vipAutoRenew,
+          vip: u.vip,
+          vipExpiresAt: u.vipExpiresAt ?? null,
         }
         const editBadges = Array.isArray(edit.badges) ? edit.badges : []
         const userBadges = Array.isArray(u.badges) ? u.badges : []
@@ -143,7 +167,9 @@ export function AdminUsersPanel({
           (edit.sellerVerified ?? false) !== (u.sellerVerified ?? false) ||
           (edit.suspicious ?? false) !== (u.suspicious ?? false) ||
           (edit.suspiciousReason ?? '') !== (u.suspiciousReason ?? '') ||
-          (edit.vipAutoRenew ?? false) !== (u.vipAutoRenew ?? false)
+          (edit.vipAutoRenew ?? false) !== (u.vipAutoRenew ?? false) ||
+          (edit.vip ?? false) !== (u.vip ?? false) ||
+          formatDateInput(edit.vipExpiresAt) !== formatDateInput(u.vipExpiresAt)
         const isExpanded = expandedUserId === u._id
         const detail = detailsByUserId[u._id]
         const isLoadingDetail = detailLoadingByUserId[u._id] === true
@@ -199,6 +225,39 @@ export function AdminUsersPanel({
                           <input type="checkbox" checked={edit.vipAutoRenew === true} onChange={e => setUserFlag(u._id, { vipAutoRenew: e.target.checked })} />
                           Auto VIP
                         </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={edit.vip === true}
+                            onChange={e => setUserFlag(u._id, { vip: e.target.checked, vipExpiresAt: e.target.checked ? (edit.vipExpiresAt ?? null) : null })}
+                          />
+                          VIP activo
+                        </label>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">Vence:</span>
+                        <input
+                          type="date"
+                          value={formatDateInput(edit.vipExpiresAt)}
+                          onChange={e => setUserFlag(u._id, { vip: true, vipExpiresAt: e.target.value || null })}
+                          disabled={edit.vip !== true}
+                          className="dedsec-input px-2 py-1 text-xs outline-none"
+                        />
+                        <button
+                          onClick={() => addVipDays(u._id, 30, edit.vipExpiresAt)}
+                          disabled={edit.vip !== true}
+                          className="text-[11px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground"
+                        >
+                          +30d
+                        </button>
+                        <button
+                          onClick={() => setUserFlag(u._id, { vip: true, vipExpiresAt: null })}
+                          disabled={edit.vip !== true}
+                          className="text-[11px] px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground"
+                        >
+                          Sin venc
+                        </button>
                       </div>
 
                       <input

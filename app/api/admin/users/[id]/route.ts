@@ -57,7 +57,7 @@ export async function PUT(
 
   const { id } = await params
   const body = await req.json()
-  const { role, badges, sellerVerified, suspicious, suspiciousReason, vipAutoRenew } = body
+  const { role, badges, sellerVerified, suspicious, suspiciousReason, vipAutoRenew, vip, vipExpiresAt } = body
 
   const update: Record<string, unknown> = {}
   if (role)   update.role   = role
@@ -66,6 +66,20 @@ export async function PUT(
   if (suspicious !== undefined) update.suspicious = suspicious === true
   if (suspiciousReason !== undefined) update.suspiciousReason = String(suspiciousReason ?? '').slice(0, 200)
   if (vipAutoRenew !== undefined) update.vipAutoRenew = vipAutoRenew === true
+  if (vip !== undefined) update.vip = vip === true
+  if (vipExpiresAt !== undefined) {
+    if (!vipExpiresAt) {
+      update.vipExpiresAt = null
+    } else {
+      const parsed = new Date(vipExpiresAt)
+      if (Number.isNaN(parsed.getTime())) {
+        return NextResponse.json({ error: 'vipExpiresAt invalido' }, { status: 400 })
+      }
+      update.vipExpiresAt = parsed
+      if (vip === undefined) update.vip = true
+    }
+  }
+  if (vip === false) update.vipExpiresAt = null
 
   await connectDB()
   const user = await User.findByIdAndUpdate(id, { $set: update }, { new: true }).select('-password')

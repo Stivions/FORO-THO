@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Donation } from '@/models/Donation'
 import { createDonationOrder } from '@/lib/paypal'
+import { getRequestBaseUrl } from '@/lib/request'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
 
   try {
     await connectDB()
-    const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
+    const returnBase = getRequestBaseUrl(req)
     const order = await createDonationOrder(returnBase, Number(amount))
 
     if (!order.id) {
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ approvalUrl })
   } catch (err) {
     console.error(err)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    const message = err instanceof Error ? err.message : 'Error interno'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

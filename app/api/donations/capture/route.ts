@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/mongodb'
 import { Donation } from '@/models/Donation'
 import { captureOrder } from '@/lib/paypal'
+import { getRequestBaseUrl } from '@/lib/request'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
   const PayerID = searchParams.get('PayerID')
 
   if (!token) {
-    return NextResponse.redirect(new URL('/donate?cancelled=1', req.url))
+    return NextResponse.redirect(new URL('/donate?cancelled=1', getRequestBaseUrl(req)))
   }
 
   try {
@@ -23,15 +24,15 @@ export async function GET(req: Request) {
         { paypalOrderId: token },
         { status: 'completed' }
       )
-      const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
+      const returnBase = getRequestBaseUrl(req)
       return NextResponse.redirect(`${returnBase}/donate?success=1`)
     }
 
-    const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
+    const returnBase = getRequestBaseUrl(req)
     return NextResponse.redirect(`${returnBase}/donate?cancelled=1`)
   } catch (err) {
     console.error(err)
-    const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
+    const returnBase = getRequestBaseUrl(req)
     return NextResponse.redirect(`${returnBase}/donate?cancelled=1`)
   }
 }

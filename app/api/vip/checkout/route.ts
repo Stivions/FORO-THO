@@ -4,16 +4,17 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/mongodb'
 import { Payment } from '@/models/Payment'
 import { createOrder } from '@/lib/paypal'
+import { getRequestBaseUrl } from '@/lib/request'
 
 export const dynamic = 'force-dynamic'
 
-export async function POST(_req: Request) {
+export async function POST(req: Request) {
   const session = await getServerSession(authOptions)
   if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   try {
     await connectDB()
-    const returnBase = process.env.NEXTAUTH_URL ?? 'http://localhost:3000'
+    const returnBase = getRequestBaseUrl(req)
     const order = await createOrder(returnBase)
 
     if (!order.id) {
@@ -38,6 +39,7 @@ export async function POST(_req: Request) {
     return NextResponse.json({ approvalUrl })
   } catch (err) {
     console.error(err)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+    const message = err instanceof Error ? err.message : 'Error interno'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -22,6 +22,8 @@ const USER_FIELDS = [
   'reputationScore',
   'reputationVotes',
   'vipAutoRenew',
+  'vip',
+  'vipExpiresAt',
   'loginCount',
   'lastLoginAt',
   'lastLogin',
